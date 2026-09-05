@@ -314,7 +314,6 @@ export default {
           take: limit,
         });
 
-        console.log("session----------------------------:", sessions);
 
         /* =====================================
        GET ROOM IDS
