@@ -239,7 +239,7 @@ export default {
 
         const where = {
           astrologerId,
-
+ type: "CHAT",
           ...(status && {
             status,
           }),
