@@ -157,7 +157,9 @@ model User {
   gender               Gender?
   birthDate            DateTime?
   birthTime            String?
+   birthPlace           String?
   occupation           String?
+  profileImage         String? 
   isActive             Boolean               @default(true)
   isDeleted            Boolean               @default(false)
   refreshToken         String?               @db.Text
@@ -199,7 +201,7 @@ model Review {
 
   reply String?
 
-  isFlagged Boolean @default(false)
+  isFlagged Boolean @default(true)
 
   userName String?
 
@@ -620,7 +622,10 @@ model Faq {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
+enum BannerType {
+  DESKTOP
+  MOBILE
+}
 model Banner {
   id         String   @id @default(uuid())
   heading    String
@@ -633,6 +638,7 @@ model Banner {
   status     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  bannerType BannerType @default(DESKTOP)
 }
 
 model RolePermission {
@@ -692,11 +698,11 @@ model AstrologerWallet {
   astrologerId   String              @unique
   astrologer     Astrologer          @relation(fields: [astrologerId], references: [id], onDelete: Cascade)
   balanceCoins   Float               @default(0)
-  totalEarned    Float                 @default(0)
+  totalEarned    Int                 @default(0)
   totalCommission Float @default(0)
   totalPaid Float @default(0)
   pendingAmount Float @default(0)
-  totalWithdrawn Float                 @default(0)
+  totalWithdrawn Int                 @default(0)
   withdrawals    Withdrawal[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -776,8 +782,8 @@ model Session {
   durationSec Int @default(0)
 
   coinsDeducted Float @default(0)
-  coinsEarned   Float @default(0)
-  commission    Float @default(0)
+coinsEarned   Float @default(0)
+commission    Float @default(0)
   source        String?
   by        String?
   review        Review?
@@ -795,7 +801,7 @@ model Session {
   callRecordings CallRecording[]
   payoutSessions AstrologerPayoutSession[]
 
-
+ refundRequests RefundRequest[]
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -1686,7 +1692,7 @@ model AstrologerPayout {
 
   astrologerId String
   astrologer Astrologer @relation(fields:[astrologerId],references:[id])
-
+remark          String?
   fromDate DateTime
   toDate DateTime
 
@@ -1754,4 +1760,72 @@ model AstrologerPayoutSession {
   session Session @relation(fields:[sessionId],references:[id])
 
   @@unique([payoutId, sessionId])
+}
+
+enum RefundRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RefundRequest {
+  id String @id @default(uuid())
+
+  // Original session
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id])
+
+  // User snapshot
+  userId String
+  userName String?
+  userMobile String?
+
+  // Astrologer snapshot
+  astrologerId String
+  astrologerName String?
+
+  // Transaction details
+  transactionId String?
+  orderId String?
+
+  // Original session details
+  sessionDuration Int
+  ratePerMin Int
+
+  // Refund details
+  refundDuration Int
+  refundAmount Float
+
+  // Request details
+  refundType String?
+  mode String?
+  refundReason String
+
+  // Admin who created request
+  requestedByStaffId String
+  requestedByStaffName String
+sessionDate DateTime
+  // Status
+  status RefundRequestStatus @default(PENDING)
+
+  // Approval details
+  approvedByStaffId String?
+  approvedByStaffName String?
+  approvedAt DateTime?
+
+  // Rejection details
+  rejectedByStaffId String?
+  rejectedByStaffName String?
+  rejectedAt DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([astrologerId])
+  @@index([status])
+  @@index([requestedByStaffId])
+  @@index([createdAt])
 }
