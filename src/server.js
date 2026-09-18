@@ -20,7 +20,7 @@ async function startServer() {
 
   // ================= MIDDLEWARE =================
 app.use(cors({
-    origin: ["https://astropanel.dhwaniastro.com", "https://astro-panel-satge-git-main-tej-engs-projects.vercel.app","https://astro-panel-v2.vercel.app"],
+    origin: ["https://astropanel.dhwaniastro.com", "https://astro-panel-satge-git-main-tej-engs-projects.vercel.app","https://astro-panel-v2.vercel.app","https://astro-staging.dhwaniastro.com"],
   credentials: true,
 }));
   app.use(express.json());
