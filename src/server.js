@@ -19,10 +19,16 @@ async function startServer() {
   const app = express();
 
   // ================= MIDDLEWARE =================
-app.use(cors({
-    origin: ["https://astropanel.dhwaniastro.com", "https://astro-panel-satge-git-main-tej-engs-projects.vercel.app","https://astro-panel-v2.vercel.app","https://astro-staging.dhwaniastro.com"],
-  credentials: true,
-}));
+const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
+    : [];
+
+  app.use(
+    cors({
+      origin: corsOrigins,
+      credentials: true,
+    }),
+  );
   app.use(express.json());
   app.use(cookieParser());
   

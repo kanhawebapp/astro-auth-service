@@ -2590,8 +2590,7 @@ export default {
 
         // Public URL returned to frontend/Redis
         const baseUrl =
-          process.env.UPLOAD_BASE_URL ||
-          "https://dhwaniastro.com/astro/v2/uploads";
+          process.env.UPLOAD_BASE_URL ;
 
         const fileUrl = `${baseUrl}/${newFileName}`;
 

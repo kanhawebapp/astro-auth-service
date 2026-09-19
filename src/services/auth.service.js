@@ -155,7 +155,7 @@ export const verifyOtpService = async (contactNo, otp, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain: `.${process.env.DOMAIN_NAME}`,
       path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });
@@ -164,7 +164,7 @@ export const verifyOtpService = async (contactNo, otp, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain: `.${process.env.DOMAIN_NAME}`,
       path: "/",
       maxAge: REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000,
     });
@@ -235,7 +235,7 @@ export const refreshTokenService = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain:`.${process.env.DOMAIN_NAME}`,
       path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });
@@ -244,7 +244,7 @@ export const refreshTokenService = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain: `.${process.env.DOMAIN_NAME}`,
       path: "/",
       maxAge: REFRESH_EXPIRE_DAYS * 24 * 60 * 60 * 1000,
     });
@@ -295,7 +295,7 @@ console.log("-------comming in -logoutService--------" )
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain: `.${process.env.DOMAIN_NAME}`,
       path: "/",
     });
 
@@ -303,7 +303,7 @@ console.log("-------comming in -logoutService--------" )
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: ".dhwaniastro.com",
+      domain: `.${process.env.DOMAIN_NAME}`,
       path: "/",
     });
   }
