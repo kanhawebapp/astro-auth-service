@@ -239,7 +239,7 @@ export default {
 
         const where = {
           astrologerId,
- type: "CHAT",
+          type: "CHAT",
           ...(status && {
             status,
           }),
@@ -314,7 +314,6 @@ export default {
           take: limit,
         });
 
-
         /* =====================================
        GET ROOM IDS
     ===================================== */
@@ -386,7 +385,7 @@ export default {
 
           return {
             sessionId: session.id,
-  userId: session.user?.id || null,
+            userId: session.user?.id || null,
             roomId,
 
             // Intake Name (tej / ajay)
@@ -660,7 +659,7 @@ export default {
 
           return {
             sessionId: session.id,
-              userId: session.user?.id || null,
+            userId: session.user?.id || null,
             roomId: lastMessage?.roomId || null,
             userName: session.user?.name || null,
             userMobile: session.user?.mobile || null,
@@ -1784,154 +1783,143 @@ export default {
       }
     },
 
-  
-getAstrologerAssignedBookedServices: async (
-  _,
-  { page = 1, limit = 10, bookingStatus, paymentStatus },
-  { user },
-) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+    getAstrologerAssignedBookedServices: async (
+      _,
+      { page = 1, limit = 10, bookingStatus, paymentStatus },
+      { user },
+    ) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    const astrologerId = user.id;
+        const astrologerId = user.id;
 
-    const skip = (page - 1) * limit;
+        const skip = (page - 1) * limit;
 
-    const where = {
-      astrologerId,
-      ...(bookingStatus && {
-        bookingStatus,
-      }),
-      ...(paymentStatus && {
-        paymentStatus,
-      }),
-    };
+        const where = {
+          astrologerId,
+          ...(bookingStatus && {
+            bookingStatus,
+          }),
+          ...(paymentStatus && {
+            paymentStatus,
+          }),
+        };
 
-    const [bookings, total] = await Promise.all([
-      prisma.serviceBooking.findMany({
-        where,
-        skip,
-        take: limit,
+        const [bookings, total] = await Promise.all([
+          prisma.serviceBooking.findMany({
+            where,
+            skip,
+            take: limit,
 
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        select: {
-          id: true,
-          userId: true,
-          serviceId: true,
-          astrologerId: true,
-
-          name: true,
-          email: true,
-          phone: true,
-
-          dob: true,
-          tob: true,
-          pob: true,
-          gender: true,
-          concern: true,
-
-          amount: true,
-
-          paymentStatus: true,
-          bookingStatus: true,
-
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-
-      prisma.serviceBooking.count({
-        where,
-      }),
-    ]);
-
-    /*
-     * Get all unique service IDs from bookings
-     */
-    const serviceIds = [
-      ...new Set(
-        bookings
-          .map((booking) => booking.serviceId)
-          .filter(Boolean),
-      ),
-    ];
-
-    /*
-     * Fetch services separately.
-     *
-     * This avoids depending on the Prisma relation
-     * between ServiceBooking and Service.
-     */
-    const services =
-      serviceIds.length > 0
-        ? await prisma.service.findMany({
-            where: {
-              id: {
-                in: serviceIds,
-              },
+            orderBy: {
+              createdAt: "desc",
             },
+
             select: {
               id: true,
+              userId: true,
+              serviceId: true,
+              astrologerId: true,
+
               name: true,
-              price: true,
+              email: true,
+              phone: true,
+
+              dob: true,
+              tob: true,
+              pob: true,
+              gender: true,
+              concern: true,
+
+              amount: true,
+
+              paymentStatus: true,
+              bookingStatus: true,
+
+              createdAt: true,
+              updatedAt: true,
             },
-          })
-        : [];
+          }),
 
-    /*
-     * Create a lookup map:
-     *
-     * serviceId -> service
-     */
-    const serviceMap = new Map(
-      services.map((service) => [
-        service.id,
-        service,
-      ]),
-    );
+          prisma.serviceBooking.count({
+            where,
+          }),
+        ]);
 
-    /*
-     * Attach service information to every booking
-     */
-    const data = bookings.map((booking) => ({
-      ...booking,
+        /*
+         * Get all unique service IDs from bookings
+         */
+        const serviceIds = [
+          ...new Set(
+            bookings.map((booking) => booking.serviceId).filter(Boolean),
+          ),
+        ];
 
-      service: booking.serviceId
-        ? serviceMap.get(booking.serviceId) || null
-        : null,
-    }));
+        /*
+         * Fetch services separately.
+         *
+         * This avoids depending on the Prisma relation
+         * between ServiceBooking and Service.
+         */
+        const services =
+          serviceIds.length > 0
+            ? await prisma.service.findMany({
+                where: {
+                  id: {
+                    in: serviceIds,
+                  },
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                },
+              })
+            : [];
 
-    return {
-      success: true,
+        /*
+         * Create a lookup map:
+         *
+         * serviceId -> service
+         */
+        const serviceMap = new Map(
+          services.map((service) => [service.id, service]),
+        );
 
-      total,
+        /*
+         * Attach service information to every booking
+         */
+        const data = bookings.map((booking) => ({
+          ...booking,
 
-      currentPage: page,
+          service: booking.serviceId
+            ? serviceMap.get(booking.serviceId) || null
+            : null,
+        }));
 
-      totalPages: Math.ceil(total / limit),
+        return {
+          success: true,
 
-      limit,
+          total,
 
-      data,
-    };
-  } catch (error) {
-    console.error(
-      "getAstrologerAssignedBookedServices error:",
-      error,
-    );
+          currentPage: page,
 
-    throw new Error(
-      error.message ||
-        "Failed to fetch assigned service bookings",
-    );
-  }
-},
+          totalPages: Math.ceil(total / limit),
 
+          limit,
+
+          data,
+        };
+      } catch (error) {
+        console.error("getAstrologerAssignedBookedServices error:", error);
+
+        throw new Error(
+          error.message || "Failed to fetch assigned service bookings",
+        );
+      }
+    },
 
     getAstrologerById: async (_, { astrologerId }) => {
       return await prisma.astrologer.findUnique({
@@ -2528,57 +2516,57 @@ getAstrologerAssignedBookedServices: async (
     },
 
     startLive: async (_, { title }, { user }) => {
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
+      if (!user) {
+        throw new Error("Unauthorized");
+      }
 
-  if (!title?.trim()) {
-    throw new Error("Live title is required");
-  }
+      if (!title?.trim()) {
+        throw new Error("Live title is required");
+      }
 
-  const existingLive = await prisma.liveStream.findFirst({
-    where: {
-      astrologerId: user.id,
-      status: "LIVE",
+      const existingLive = await prisma.liveStream.findFirst({
+        where: {
+          astrologerId: user.id,
+          status: "LIVE",
+        },
+      });
+
+      if (existingLive) {
+        throw new Error("You already have an active live stream");
+      }
+
+      const scheduledStream = await prisma.liveStream.findFirst({
+        where: {
+          astrologerId: user.id,
+          status: "SCHEDULED",
+        },
+        orderBy: {
+          scheduledAt: "asc",
+        },
+      });
+
+      if (scheduledStream) {
+        return prisma.liveStream.update({
+          where: {
+            id: scheduledStream.id,
+          },
+          data: {
+            status: "LIVE",
+            startedAt: new Date(),
+          },
+        });
+      }
+
+      return prisma.liveStream.create({
+        data: {
+          astrologerId: user.id,
+          title: title.trim(),
+          channelName: `astro-${user.id}-${Date.now()}`,
+          status: "LIVE",
+          startedAt: new Date(),
+        },
+      });
     },
-  });
-
-  if (existingLive) {
-    throw new Error("You already have an active live stream");
-  }
-
-  const scheduledStream = await prisma.liveStream.findFirst({
-    where: {
-      astrologerId: user.id,
-      status: "SCHEDULED",
-    },
-    orderBy: {
-      scheduledAt: "asc",
-    },
-  });
-
-  if (scheduledStream) {
-    return prisma.liveStream.update({
-      where: {
-        id: scheduledStream.id,
-      },
-      data: {
-        status: "LIVE",
-        startedAt: new Date(),
-      },
-    });
-  }
-
-  return prisma.liveStream.create({
-    data: {
-      astrologerId: user.id,
-      title: title.trim(),
-      channelName: `astro-${user.id}-${Date.now()}`,
-      status: "LIVE",
-      startedAt: new Date(),
-    },
-  });
-},
 
     endLive: async (_, { streamId }, { user }) => {
       if (!user) {
@@ -2690,8 +2678,7 @@ getAstrologerAssignedBookedServices: async (
         });
 
         // Public URL returned to frontend/Redis
-        const baseUrl =
-          process.env.UPLOAD_BASE_URL ;
+        const baseUrl = process.env.UPLOAD_BASE_URL;
 
         const fileUrl = `${baseUrl}/${newFileName}`;
 
