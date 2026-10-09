@@ -804,10 +804,14 @@ type LiveStream {
 }
 
 type JoinLiveResponse {
-  token: String!
-  uid: Int!
   appId: String!
   channelName: String!
+  uid: Int!
+  rtcToken: String!
+  chatUserId: String!
+  chatToken: String!
+  chatRoomId: String!
+  chatAppKey: String!
 }
   
 #----------END CODE FOR LIVE STREAMING--------------

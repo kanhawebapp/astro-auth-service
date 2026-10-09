@@ -2526,48 +2526,59 @@ getAstrologerAssignedBookedServices: async (
         } successfully`,
       };
     },
+
     startLive: async (_, { title }, { user }) => {
-      console.log("comming in startLive");
-      if (!user) {
-        throw new Error("Unauthorized");
-      }
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
 
-      const existingScheduled = await prisma.liveStream.findFirst({
-        where: {
-          astrologerId: user.id,
+  if (!title?.trim()) {
+    throw new Error("Live title is required");
+  }
 
-          status: "SCHEDULED",
-        },
-
-        orderBy: {
-          scheduledAt: "asc",
-        },
-      });
-
-      if (existingScheduled) {
-        return prisma.liveStream.update({
-          where: {
-            id: existingScheduled.id,
-          },
-
-          data: {
-            status: "LIVE",
-          },
-        });
-      }
-
-      return prisma.liveStream.create({
-        data: {
-          astrologerId: user.id,
-
-          title,
-
-          channelName: `astro-${user.id}`,
-
-          status: "LIVE",
-        },
-      });
+  const existingLive = await prisma.liveStream.findFirst({
+    where: {
+      astrologerId: user.id,
+      status: "LIVE",
     },
+  });
+
+  if (existingLive) {
+    throw new Error("You already have an active live stream");
+  }
+
+  const scheduledStream = await prisma.liveStream.findFirst({
+    where: {
+      astrologerId: user.id,
+      status: "SCHEDULED",
+    },
+    orderBy: {
+      scheduledAt: "asc",
+    },
+  });
+
+  if (scheduledStream) {
+    return prisma.liveStream.update({
+      where: {
+        id: scheduledStream.id,
+      },
+      data: {
+        status: "LIVE",
+        startedAt: new Date(),
+      },
+    });
+  }
+
+  return prisma.liveStream.create({
+    data: {
+      astrologerId: user.id,
+      title: title.trim(),
+      channelName: `astro-${user.id}-${Date.now()}`,
+      status: "LIVE",
+      startedAt: new Date(),
+    },
+  });
+},
 
     endLive: async (_, { streamId }, { user }) => {
       if (!user) {

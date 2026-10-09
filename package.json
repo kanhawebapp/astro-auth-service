@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@apollo/server": "^4.13.0",
+    "@onesignal/node-onesignal": "^5.19.0",
     "@prisma/client": "^5.22.0",
     "agora-access-token": "^2.0.4",
     "axios": "^1.17.0",
