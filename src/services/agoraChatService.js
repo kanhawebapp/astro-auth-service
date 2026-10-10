@@ -247,7 +247,6 @@ export const createAgoraChatRoom = async ({
     );
 
     const room = data?.data?.[0] ?? data?.data ?? data;
-
     if (!room) {
       throw new Error("Agora Chat did not return room details");
     }
