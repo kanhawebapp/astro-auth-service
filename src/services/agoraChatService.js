@@ -10,7 +10,7 @@ const APP_NAME = process.env.AGORA_CHAT_APNAME;
 
 const CHAT_BASE_URL = process.env.AGORA_CHAT_BASEURL?.replace(/\/+$/, "");
 
-// Agora Chat management API credentials
+// Agora Chat RESTful API credentials (Customer ID / Customer Secret)
 const CLIENT_ID = process.env.AGORA_CHAT_CLIENT_ID;
 const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET;
 
@@ -18,13 +18,15 @@ const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET;
 // Validate Agora Chat Configuration
 // ==========================================
 console.log(
+  "Config Loaded:",
   CHAT_APPKEY,
   ORG_NAME,
   APP_NAME,
   CHAT_BASE_URL,
-  CLIENT_ID,
-  CLIENT_SECRET,
+  CLIENT_ID ? "CLIENT_ID present" : "CLIENT_ID missing",
+  CLIENT_SECRET ? "CLIENT_SECRET present" : "CLIENT_SECRET missing",
 );
+
 const validateAgoraChatConfig = () => {
   const requiredVariables = {
     AGORA_CHAT_APPKEY: CHAT_APPKEY,
@@ -51,15 +53,15 @@ const validateAgoraChatConfig = () => {
 // ==========================================
 
 /**
- * Generates an Agora Chat management token using client credentials.
+ * Generates an Agora Chat management token using Customer ID / Customer Secret.
  *
  * This token is used for administrative REST API operations such as:
  * - Creating chat rooms
  * - Generating user tokens
  *
  * Required environment variables:
- * AGORA_CHAT_CLIENT_ID
- * AGORA_CHAT_CLIENT_SECRET
+ * AGORA_CHAT_CLIENT_ID     (Customer ID from RESTful API Keys page)
+ * AGORA_CHAT_CLIENT_SECRET (Customer Secret from RESTful API Keys page)
  * AGORA_CHAT_ORGNAME
  * AGORA_CHAT_APNAME
  * AGORA_CHAT_BASEURL
@@ -72,17 +74,26 @@ export const getAgoraManagementToken = async () => {
   const tokenUrl = `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/token`;
   console.log("tokenUrl---------:", tokenUrl);
 
+  // Encode Customer ID + Customer Secret as Base64 for Basic Auth
+  const credentials = Buffer.from(
+    `${CLIENT_ID}:${CLIENT_SECRET}`,
+  ).toString("base64");
+
+  // Debug: verify what is actually being sent (does not expose full secret)
+  console.log("=== Token Request Debug ===");
+  console.log("URL:", tokenUrl);
+  console.log("Auth header:", `Basic ${credentials.substring(0, 24)}...`);
+  console.log("CLIENT_ID length:", CLIENT_ID?.length);
+  console.log("CLIENT_SECRET length:", CLIENT_SECRET?.length);
+  console.log("============================");
+
   try {
-    console.log("CLIENT_ID------------",CLIENT_ID,CLIENT_SECRET);
     const { data } = await axios.post(
       tokenUrl,
-      {
-        grant_type: "client_credentials",
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-      },
+      {},
       {
         headers: {
+          Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
         },
         timeout: 15000,
@@ -90,7 +101,8 @@ export const getAgoraManagementToken = async () => {
     );
 
     const managementToken = data?.access_token || data?.data?.access_token;
-     console.log("managementToken--------------:",managementToken);
+    console.log("managementToken--------------:", managementToken);
+
     if (!managementToken) {
       throw new Error(
         "Agora Chat management token was not returned by the API",
