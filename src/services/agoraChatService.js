@@ -1,5 +1,6 @@
 import axios from "axios";
 import agoraToken from "agora-token";
+import { randomBytes } from "node:crypto";
 
 const { ChatTokenBuilder } = agoraToken;
 
@@ -265,6 +266,116 @@ export const createAgoraChatRoom = async ({
         error,
         "Failed to create Agora Chat room",
       ),
+    );
+  }
+};
+
+// ======================================================
+// Register Agora Chat User
+// ======================================================
+
+export const registerAgoraChatUser = async ({
+  username,
+  password,
+  nickname,
+}) => {
+  validateAgoraChatConfig();
+
+  if (!username || !String(username).trim()) {
+    throw new Error("Agora Chat username is required");
+  }
+
+  const chatUsername = String(username).trim();
+
+  // Agora usernames should use lowercase letters, numbers,
+  // underscores, hyphens, or periods.
+  if (
+    chatUsername.length > 64 ||
+    !/^[a-z0-9_.-]+$/.test(chatUsername)
+  ) {
+    throw new Error(
+      "Invalid Agora Chat username. Use lowercase letters, numbers, underscores, hyphens, or periods.",
+    );
+  }
+
+  // The resolver can omit password because the backend generates one.
+  // Keep an explicitly supplied password if your application needs it.
+  const chatPassword =
+    password && String(password).trim()
+      ? String(password)
+      : randomBytes(32).toString("hex");
+
+  const managementToken = await getAgoraManagementToken();
+
+  const registrationUrl =
+    `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/users`;
+
+  try {
+    const response = await axios.post(
+      registrationUrl,
+      {
+        username: chatUsername,
+        password: chatPassword,
+        nickname:
+          nickname && String(nickname).trim()
+            ? String(nickname).trim()
+            : chatUsername,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${managementToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      },
+    );
+
+    console.log("Agora Chat user registered successfully");
+
+    return {
+      username: chatUsername,
+      alreadyExists: false,
+      data: response.data,
+    };
+  } catch (error) {
+    const status = error.response?.status;
+    const responseData = error.response?.data;
+
+    const errorMessage = String(
+      getAgoraErrorMessage(
+        error,
+        "Failed to register Agora Chat user",
+      ),
+    );
+
+    // Treat the error as a duplicate only when the response
+    // actually indicates that the username already exists.
+    const duplicateUser =
+      /already exists|already exist|duplicate_unique_property_exists|duplicate username|username.*exist|user.*exist/i.test(
+        errorMessage,
+      ) ||
+      /duplicate_unique_property_exists/i.test(
+        String(responseData?.error || responseData?.code || ""),
+      );
+
+    if (duplicateUser && (status === 400 || status === 409)) {
+      console.log("Agora Chat user already exists");
+
+      return {
+        username: chatUsername,
+        alreadyExists: true,
+      };
+    }
+
+    console.error("Agora Chat user registration failed:", {
+      status,
+      error: responseData?.error,
+      message: errorMessage,
+    });
+
+    throw new Error(
+      `Agora Chat user registration failed: ${errorMessage}`,
     );
   }
 };

@@ -22,6 +22,7 @@ import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
 import {
   createAgoraChatRoom,
   generateAgoraChatUserToken,
+  registerAgoraChatUser,
 } from "../services/agoraChatService.js";
 
 export default {
@@ -2141,97 +2142,151 @@ export default {
       }
     },
 
-    joinLive: async (_, { channelName, role }, { user }) => {
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
-  if (!["publisher", "subscriber"].includes(role)) {
-    throw new Error("Invalid Agora role");
-  }
-
-  const stream = await prisma.liveStream.findFirst({
-    where: {
-      channelName,
-      status: "LIVE",
-    },
-  });
-
-  if (!stream) {
-    throw new Error("Live stream not found");
-  }
-
-  const appId = process.env.AGORA_APP_ID;
-  const chatAppKey = process.env.AGORA_CHAT_APPKEY;
-
-  if (!appId) {
-    throw new Error("AGORA_APP_ID is not configured");
-  }
-
-  if (!chatAppKey) {
-    throw new Error("AGORA_CHAT_APPKEY is not configured");
-  }
-
-  // Generate RTC credentials.
-  const uid = Math.floor(Math.random() * 100000) + 1;
-
-  const rtcToken = generateRtcToken({
-    channelName,
-    uid,
-    role,
-  });
-
-  if (!rtcToken) {
-    throw new Error("Failed to generate Agora RTC token");
-  }
-
-  /*
-   * IMPORTANT:
-   * This ID must match an existing Agora Chat user.
-   * Replace this naming convention if your application already
-   * stores Agora Chat usernames separately.
-   */
-  const chatUserId = `astro_${stream.astrologerId}`;
-
-  // Reuse the stream's existing Chat room when available.
-  let chatRoomId = stream.chatRoomId;
-
-  if (!chatRoomId) {
-    const room = await createAgoraChatRoom({
-      name: `Live ${stream.title}`,
-      description: `Live chat for ${stream.title}`,
-      owner: chatUserId,
-    });
-
-    chatRoomId = room?.id || room?.chatroomid;
-
-    if (!chatRoomId) {
-      throw new Error("Failed to create Agora Chat room");
+  joinLive: async (_, { channelName, role }, { user }) => {
+  try {
+    // STEP 1: Authenticate the caller.
+    if (!user) {
+      throw new GraphQLError("Unauthorized", {
+        extensions: {
+          code: "UNAUTHENTICATED",
+        },
+      });
     }
 
-    await prisma.liveStream.update({
+    if (!["publisher", "subscriber"].includes(role)) {
+      throw new Error("Invalid Agora role");
+    }
+
+    // STEP 2: Find the active stream.
+    const stream = await prisma.liveStream.findFirst({
       where: {
-        id: stream.id,
-      },
-      data: {
-        chatRoomId,
+        channelName,
+        status: "LIVE",
       },
     });
+
+    if (!stream) {
+      throw new Error("Live stream not found");
+    }
+
+    // STEP 3: Only the owner astrologer may publish.
+    if (role === "publisher" && user.id !== stream.astrologerId) {
+      throw new GraphQLError(
+        "Only the astrologer who owns this stream can publish",
+        {
+          extensions: {
+            code: "FORBIDDEN",
+          },
+        },
+      );
+    }
+
+    const appId = process.env.AGORA_APP_ID;
+    const chatAppKey = process.env.AGORA_CHAT_APPKEY;
+
+    if (!appId) {
+      throw new Error("AGORA_APP_ID is not configured");
+    }
+
+    if (!chatAppKey) {
+      throw new Error("AGORA_CHAT_APPKEY is not configured");
+    }
+
+    // STEP 4: Register the astrologer as the room owner if needed.
+    const astrologerChatUsername =
+      `astro_${stream.astrologerId}`;
+
+    await registerAgoraChatUser({
+      username: astrologerChatUsername,
+      nickname: astrologerChatUsername,
+    });
+
+    // STEP 5: Reuse the saved Chat room.
+    let chatRoomId = stream.chatRoomId;
+
+    // Fallback for live streams created before this integration.
+    if (!chatRoomId) {
+      const room = await createAgoraChatRoom({
+        name: `live_${stream.id}`,
+        description: `Live chat for ${stream.title}`,
+        maxusers: 100,
+        owner: astrologerChatUsername,
+      });
+
+      chatRoomId =
+        room?.id ||
+        room?.chatroomid ||
+        room?.chatroomId ||
+        null;
+
+      if (!chatRoomId) {
+        throw new Error("Failed to create Agora Chat room");
+      }
+
+      await prisma.liveStream.update({
+        where: {
+          id: stream.id,
+        },
+        data: {
+          chatRoomId,
+        },
+      });
+    }
+
+    // STEP 6: Use the caller's own Chat identity.
+    // Astrologer: astro_<astrologer database ID>
+    // Viewer:     user_<user database ID>
+    const chatUserId =
+      role === "publisher"
+        ? astrologerChatUsername
+        : `user_${user.id}`;
+
+    // Register the caller if this is their first Chat login.
+    await registerAgoraChatUser({
+      username: chatUserId,
+      nickname: user.name || chatUserId,
+    });
+
+    // STEP 7: Generate the RTC token.
+    const uid = Math.floor(Math.random() * 100000) + 1;
+
+    const rtcToken = generateRtcToken({
+      channelName,
+      uid,
+      role,
+    });
+
+    if (!rtcToken) {
+      throw new Error("Failed to generate Agora RTC token");
+    }
+
+    // STEP 8: Generate a Chat token for the caller's own account.
+    const chatToken =
+      await generateAgoraChatUserToken(chatUserId);
+
+    if (!chatToken) {
+      throw new Error("Failed to generate Agora Chat token");
+    }
+
+    // STEP 9: Return credentials and the shared room ID.
+    return {
+      appId,
+      channelName,
+      uid,
+      rtcToken,
+      chatUserId,
+      chatToken,
+      chatRoomId,
+      chatAppKey,
+    };
+  } catch (error) {
+    console.error("joinLive error:", {
+      message: error.message,
+      code: error.extensions?.code,
+    });
+
+    throw error;
   }
-
-  // Obtain a token for the authenticated astrologer's Chat account.
-  const chatToken = await generateAgoraChatUserToken(chatUserId);
-
-  return {
-    appId,
-    channelName,
-    uid,
-    rtcToken,
-    chatUserId,
-    chatToken,
-    chatRoomId,
-    chatAppKey,
-  };
 },
     getMyScheduledLives: async (_, __, { user }) => {
       if (!user) {
@@ -2582,58 +2637,127 @@ export default {
       };
     },
 
-    startLive: async (_, { title }, { user }) => {
-      if (!user) {
-        throw new Error("Unauthorized");
-      }
+   startLive: async (_, { title }, { user }) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
 
-      if (!title?.trim()) {
-        throw new Error("Live title is required");
-      }
+    if (!title?.trim()) {
+      throw new Error("Live title is required");
+    }
 
-      const existingLive = await prisma.liveStream.findFirst({
-        where: {
-          astrologerId: user.id,
-          status: "LIVE",
-        },
+    // Fetch the authenticated astrologer's details.
+    const astrologer = await prisma.astrologer.findUnique({
+      where: {
+        id: user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new Error("Astrologer not found");
+    }
+
+    // Prevent an astrologer from starting multiple live streams.
+    const existingLive = await prisma.liveStream.findFirst({
+      where: {
+        astrologerId: user.id,
+        status: "LIVE",
+      },
+    });
+
+    if (existingLive) {
+      throw new Error("You already have an active live stream");
+    }
+
+    // Reuse the astrologer's next scheduled stream, if available.
+    const scheduledStream = await prisma.liveStream.findFirst({
+      where: {
+        astrologerId: user.id,
+        status: "SCHEDULED",
+      },
+      orderBy: {
+        scheduledAt: "asc",
+      },
+    });
+
+    const streamTitle = scheduledStream?.title || title.trim();
+
+    // This must be the same username used by joinLive.
+    const chatUsername = `astro_${astrologer.id}`;
+
+    // STEP 1: Ensure the astrologer exists in Agora Chat.
+    await registerAgoraChatUser({
+      username: chatUsername,
+      nickname:
+        astrologer.displayName ||
+        astrologer.name ||
+        chatUsername,
+    });
+
+    // STEP 2: Reuse the room if this scheduled stream already has one.
+    let chatRoomId = scheduledStream?.chatRoomId || null;
+
+    if (!chatRoomId) {
+      const room = await createAgoraChatRoom({
+        name: `live_${astrologer.id}_${Date.now()}`,
+        description: `Live chat for ${streamTitle}`,
+        maxusers: 100,
+        owner: chatUsername,
       });
 
-      if (existingLive) {
-        throw new Error("You already have an active live stream");
-      }
+      chatRoomId =
+        room?.id ||
+        room?.chatroomid ||
+        room?.chatroomId ||
+        null;
 
-      const scheduledStream = await prisma.liveStream.findFirst({
+      if (!chatRoomId) {
+        console.error(
+          "Agora Chat room response did not contain a room ID",
+        );
+
+        throw new Error("Agora Chat room creation failed");
+      }
+    }
+
+    // STEP 3: Start the scheduled stream or create a new one.
+    if (scheduledStream) {
+      return await prisma.liveStream.update({
         where: {
-          astrologerId: user.id,
-          status: "SCHEDULED",
+          id: scheduledStream.id,
         },
-        orderBy: {
-          scheduledAt: "asc",
-        },
-      });
-
-      if (scheduledStream) {
-        return prisma.liveStream.update({
-          where: {
-            id: scheduledStream.id,
-          },
-          data: {
-            status: "LIVE",
-            startedAt: new Date(),
-          },
-        });
-      }
-
-      return prisma.liveStream.create({
         data: {
-          astrologerId: user.id,
-          title: title.trim(),
-          channelName: `astro-${user.id}-${Date.now()}`,
           status: "LIVE",
           startedAt: new Date(),
+          chatRoomId,
         },
       });
-    },
+    }
+
+    return await prisma.liveStream.create({
+      data: {
+        astrologerId: astrologer.id,
+        title: streamTitle,
+        channelName: `astro-${astrologer.id}-${Date.now()}`,
+        status: "LIVE",
+        startedAt: new Date(),
+        chatRoomId,
+      },
+    });
+  } catch (error) {
+    console.error("startLive error:", {
+      message: error.message,
+    });
+
+    throw new Error(error.message || "Failed to start live stream");
+  }
+},
 
     endLive: async (_, { streamId }, { user }) => {
       if (!user) {
