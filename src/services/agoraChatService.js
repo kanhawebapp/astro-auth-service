@@ -89,16 +89,18 @@ export const getAgoraManagementToken = async () => {
 
   try {
     const { data } = await axios.post(
-      tokenUrl,
-      {},
-      {
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      },
-    );
+  tokenUrl,
+  {
+    grant_type: "client_credentials",
+  },
+  {
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  },
+);
 
     const managementToken = data?.access_token || data?.data?.access_token;
     console.log("managementToken--------------:", managementToken);
