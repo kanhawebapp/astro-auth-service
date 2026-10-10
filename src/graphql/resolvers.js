@@ -19,6 +19,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
 
+import {
+  createAgoraChatRoom,
+  generateAgoraChatUserToken,
+} from "../services/agoraChatService.js";
+
 export default {
   //JSON: GraphQLJSON,
   Upload: GraphQLUpload,
@@ -2136,36 +2141,98 @@ export default {
       }
     },
 
-    joinLive: async (_, { channelName, role }) => {
-      console.log("comming in joinLive----------------:");
-      const stream = await prisma.liveStream.findFirst({
-        where: {
-          channelName,
-          status: "LIVE",
-        },
-      });
+    joinLive: async (_, { channelName, role }, { user }) => {
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
 
-      if (!stream) {
-        throw new Error("Live stream not found");
-      }
+  if (!["publisher", "subscriber"].includes(role)) {
+    throw new Error("Invalid Agora role");
+  }
 
-      const uid = Math.floor(Math.random() * 100000);
-      console.log("AGORA_APP_ID--------------:", process.env.AGORA_APP_ID);
-
-      const token = generateRtcToken({
-        channelName,
-        uid,
-        role,
-      });
-      console.log("token for agora---------:", token);
-      return {
-        token,
-        uid,
-        appId: process.env.AGORA_APP_ID,
-        channelName,
-      };
+  const stream = await prisma.liveStream.findFirst({
+    where: {
+      channelName,
+      status: "LIVE",
     },
+  });
 
+  if (!stream) {
+    throw new Error("Live stream not found");
+  }
+
+  const appId = process.env.AGORA_APP_ID;
+  const chatAppKey = process.env.AGORA_CHAT_APP_KEY;
+
+  if (!appId) {
+    throw new Error("AGORA_APP_ID is not configured");
+  }
+
+  if (!chatAppKey) {
+    throw new Error("AGORA_CHAT_APP_KEY is not configured");
+  }
+
+  // Generate RTC credentials.
+  const uid = Math.floor(Math.random() * 100000) + 1;
+
+  const rtcToken = generateRtcToken({
+    channelName,
+    uid,
+    role,
+  });
+
+  if (!rtcToken) {
+    throw new Error("Failed to generate Agora RTC token");
+  }
+
+  /*
+   * IMPORTANT:
+   * This ID must match an existing Agora Chat user.
+   * Replace this naming convention if your application already
+   * stores Agora Chat usernames separately.
+   */
+  const chatUserId = `astro_${stream.astrologerId}`;
+
+  // Reuse the stream's existing Chat room when available.
+  let chatRoomId = stream.chatRoomId;
+
+  if (!chatRoomId) {
+    const room = await createAgoraChatRoom({
+      name: `Live ${stream.title}`,
+      description: `Live chat for ${stream.title}`,
+      owner: chatUserId,
+    });
+
+    chatRoomId = room?.id || room?.chatroomid;
+
+    if (!chatRoomId) {
+      throw new Error("Failed to create Agora Chat room");
+    }
+
+    await prisma.liveStream.update({
+      where: {
+        id: stream.id,
+      },
+      data: {
+        chatRoomId,
+      },
+    });
+  }
+
+  // Obtain a token for the authenticated astrologer's Chat account.
+  const chatToken = await generateAgoraChatUserToken(chatUserId);
+
+  return {
+    appId,
+    channelName,
+    uid,
+    rtcToken,
+    chatUserId,
+    chatToken,
+    chatRoomId,
+    chatAppKey,
+  };
+},
     getMyScheduledLives: async (_, __, { user }) => {
       if (!user) {
         throw new Error("Unauthorized");

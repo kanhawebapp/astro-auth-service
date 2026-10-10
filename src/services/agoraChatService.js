@@ -1,24 +1,25 @@
-export const createAgoraChatRoom = async ({
-  name,
-  description,
-  owner,
-}) => {
-  const token = await getAgoraManagementToken();
+export const generateAgoraChatUserToken = async (chatUserId) => {
+  if (!chatUserId) {
+    throw new Error("Agora Chat user ID is required");
+  }
+
+  const managementToken = await getAgoraManagementToken();
 
   const { data } = await axios.post(
-    `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/chatrooms`,
-    {
-      name,
-      description,
-      owner,
-      maxusers: 5000,
-    },
+    `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/users/${encodeURIComponent(chatUserId)}/token`,
+    {},
     {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${managementToken}`,
       },
     }
   );
 
-  return data.data;
+  const chatToken = data?.access_token || data?.data?.access_token;
+
+  if (!chatToken) {
+    throw new Error("Failed to generate Agora Chat user token");
+  }
+
+  return chatToken;
 };

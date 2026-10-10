@@ -808,6 +808,7 @@ type JoinLiveResponse {
   channelName: String!
   uid: Int!
   rtcToken: String!
+
   chatUserId: String!
   chatToken: String!
   chatRoomId: String!
