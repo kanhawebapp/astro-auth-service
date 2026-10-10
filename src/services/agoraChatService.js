@@ -17,7 +17,14 @@ const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET;
 // ==========================================
 // Validate Agora Chat Configuration
 // ==========================================
-console.log(CHAT_APPKEY,ORG_NAME,APP_NAME,CHAT_BASE_URL,CLIENT_ID,CLIENT_SECRET);
+console.log(
+  CHAT_APPKEY,
+  ORG_NAME,
+  APP_NAME,
+  CHAT_BASE_URL,
+  CLIENT_ID,
+  CLIENT_SECRET,
+);
 const validateAgoraChatConfig = () => {
   const requiredVariables = {
     AGORA_CHAT_APPKEY: CHAT_APPKEY,
@@ -34,7 +41,7 @@ const validateAgoraChatConfig = () => {
 
   if (missingVariables.length > 0) {
     throw new Error(
-      `Missing Agora Chat environment variables: ${missingVariables.join(", ")}`
+      `Missing Agora Chat environment variables: ${missingVariables.join(", ")}`,
     );
   }
 };
@@ -63,6 +70,7 @@ export const getAgoraManagementToken = async () => {
   validateAgoraChatConfig();
 
   const tokenUrl = `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/token`;
+  console.log("tokenUrl---------:", tokenUrl);
 
   try {
     const { data } = await axios.post(
@@ -77,16 +85,14 @@ export const getAgoraManagementToken = async () => {
           "Content-Type": "application/json",
         },
         timeout: 15000,
-      }
+      },
     );
 
-    const managementToken =
-      data?.access_token ||
-      data?.data?.access_token;
-
+    const managementToken = data?.access_token || data?.data?.access_token;
+     console.log("managementToken--------------:",managementToken);
     if (!managementToken) {
       throw new Error(
-        "Agora Chat management token was not returned by the API"
+        "Agora Chat management token was not returned by the API",
       );
     }
 
@@ -94,14 +100,14 @@ export const getAgoraManagementToken = async () => {
   } catch (error) {
     console.error(
       "Agora Chat management token generation failed:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
 
     throw new Error(
       error.response?.data?.error_description ||
         error.response?.data?.error ||
         error.message ||
-        "Failed to generate Agora Chat management token"
+        "Failed to generate Agora Chat management token",
     );
   }
 };
@@ -139,16 +145,14 @@ export const generateAgoraChatUserToken = async (chatUserId) => {
           "Content-Type": "application/json",
         },
         timeout: 15000,
-      }
+      },
     );
 
-    const chatToken =
-      data?.access_token ||
-      data?.data?.access_token;
+    const chatToken = data?.access_token || data?.data?.access_token;
 
     if (!chatToken) {
       throw new Error(
-        `Agora Chat user token was not returned for user: ${chatUserId}`
+        `Agora Chat user token was not returned for user: ${chatUserId}`,
       );
     }
 
@@ -156,14 +160,14 @@ export const generateAgoraChatUserToken = async (chatUserId) => {
   } catch (error) {
     console.error(
       "Agora Chat user token generation failed:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
 
     throw new Error(
       error.response?.data?.error_description ||
         error.response?.data?.error ||
         error.message ||
-        "Failed to generate Agora Chat user token"
+        "Failed to generate Agora Chat user token",
     );
   }
 };
@@ -222,7 +226,7 @@ export const createAgoraChatRoom = async ({
           "Content-Type": "application/json",
         },
         timeout: 15000,
-      }
+      },
     );
 
     const room = data?.data?.[0] ?? data?.data ?? data;
@@ -235,14 +239,14 @@ export const createAgoraChatRoom = async ({
   } catch (error) {
     console.error(
       "Agora Chat room creation failed:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
 
     throw new Error(
       error.response?.data?.error_description ||
         error.response?.data?.error ||
         error.message ||
-        "Failed to create Agora Chat room"
+        "Failed to create Agora Chat room",
     );
   }
 };
