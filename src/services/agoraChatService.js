@@ -77,7 +77,7 @@ export const getAgoraManagementToken = async () => {
   // Encode Customer ID + Customer Secret as Base64 for Basic Auth
   console.log(`testtttttttttttttttttt ${CLIENT_ID}:${CLIENT_SECRET}`);
   const credentials = Buffer.from(
-    `${CLIENT_ID}:${CLIENT_SECRET}`,
+    `${CLIENT_ID.trim()}:${CLIENT_SECRET.trim()}`,
   ).toString("base64");
   console.log("credentials-------------:",credentials);
 
