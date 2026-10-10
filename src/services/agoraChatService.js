@@ -73,6 +73,7 @@ export const getAgoraManagementToken = async () => {
   console.log("tokenUrl---------:", tokenUrl);
 
   try {
+    console.log("CLIENT_ID------------",CLIENT_ID,CLIENT_SECRET);
     const { data } = await axios.post(
       tokenUrl,
       {
