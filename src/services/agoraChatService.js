@@ -1,18 +1,19 @@
 import axios from "axios";
+import { ChatTokenBuilder } from "agora-token";
 
 // ==========================================
 // Agora Chat Configuration
 // ==========================================
 
-const CHAT_APPKEY = process.env.AGORA_CHAT_APPKEY;
-const ORG_NAME = process.env.AGORA_CHAT_ORGNAME;
-const APP_NAME = process.env.AGORA_CHAT_APNAME;
+const CHAT_APPKEY = process.env.AGORA_CHAT_APPKEY.trim();
+const ORG_NAME = process.env.AGORA_CHAT_ORGNAME.trim();
+const APP_NAME = process.env.AGORA_CHAT_APNAME.trim();
 
 const CHAT_BASE_URL = process.env.AGORA_CHAT_BASEURL?.replace(/\/+$/, "");
 
 // Agora Chat RESTful API credentials (Customer ID / Customer Secret)
-const CLIENT_ID = process.env.AGORA_CHAT_CLIENT_ID;
-const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET;
+const CLIENT_ID = process.env.AGORA_CHAT_CLIENT_ID.trim();
+const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET.trim();
 
 // ==========================================
 // Validate Agora Chat Configuration
@@ -69,63 +70,29 @@ const validateAgoraChatConfig = () => {
  * @returns {Promise<string>} Agora Chat management access token
  */
 export const getAgoraManagementToken = async () => {
-  validateAgoraChatConfig();
-
-  const tokenUrl = `${CHAT_BASE_URL}/${ORG_NAME}/${APP_NAME}/token`;
-  console.log("tokenUrl---------:", tokenUrl);
-
-  // Encode Customer ID + Customer Secret as Base64 for Basic Auth
-  console.log(`testtttttttttttttttttt ${CLIENT_ID}:${CLIENT_SECRET}`);
-  const credentials = Buffer.from(
-    `${CLIENT_ID.trim()}:${CLIENT_SECRET.trim()}`,
-  ).toString("base64");
-  console.log("credentials-------------:",credentials);
-
-  // Debug: verify what is actually being sent (does not expose full secret)
-  console.log("=== Token Request Debug ===");
-  console.log("URL:", tokenUrl);
-  console.log("Auth header:", `Basic ${credentials.substring(0, 24)}...`);
-  console.log("CLIENT_ID length:", CLIENT_ID?.length);
-  console.log("CLIENT_SECRET length:", CLIENT_SECRET?.length);
-  console.log("============================");
+  if (!APP_ID || !APP_CERTIFICATE) {
+    throw new Error(
+      "AGORA_CHAT_APP_ID and AGORA_CHAT_APP_CERTIFICATE must be configured",
+    );
+  }
 
   try {
-    const { data } = await axios.post(
-  tokenUrl,
-  {
-    grant_type: "client_credentials",
-  },
-  {
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/json",
-    },
-    timeout: 15000,
-  },
-);
+    const expirationInSeconds = 24 * 60 * 60;
 
-    const managementToken = data?.access_token || data?.data?.access_token;
-    console.log("managementToken--------------:", managementToken);
+    const appToken = ChatTokenBuilder.buildAppToken(
+      APP_ID,
+      APP_CERTIFICATE,
+      expirationInSeconds,
+    );
 
-    if (!managementToken) {
-      throw new Error(
-        "Agora Chat management token was not returned by the API",
-      );
+    if (!appToken) {
+      throw new Error("Agora did not generate an app token");
     }
 
-    return managementToken;
+    return appToken;
   } catch (error) {
-    console.error(
-      "Agora Chat management token generation failed:",
-      error.response?.data || error.message,
-    );
-
-    throw new Error(
-      error.response?.data?.error_description ||
-        error.response?.data?.error ||
-        error.message ||
-        "Failed to generate Agora Chat management token",
-    );
+    console.error("Agora app token generation failed:", error.message);
+    throw error;
   }
 };
 
