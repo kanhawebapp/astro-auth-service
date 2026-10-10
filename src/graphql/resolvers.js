@@ -2162,14 +2162,14 @@ export default {
   }
 
   const appId = process.env.AGORA_APP_ID;
-  const chatAppKey = process.env.AGORA_CHAT_APP_KEY;
+  const chatAppKey = process.env.AGORA_CHAT_APPKEY;
 
   if (!appId) {
     throw new Error("AGORA_APP_ID is not configured");
   }
 
   if (!chatAppKey) {
-    throw new Error("AGORA_CHAT_APP_KEY is not configured");
+    throw new Error("AGORA_CHAT_APPKEY is not configured");
   }
 
   // Generate RTC credentials.
