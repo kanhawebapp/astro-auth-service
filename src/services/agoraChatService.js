@@ -17,7 +17,7 @@ const CLIENT_SECRET = process.env.AGORA_CHAT_CLIENT_SECRET;
 // ==========================================
 // Validate Agora Chat Configuration
 // ==========================================
-
+console.log(CHAT_APPKEY,ORG_NAME,APP_NAME,CHAT_BASE_URL,CLIENT_ID,CLIENT_SECRET);
 const validateAgoraChatConfig = () => {
   const requiredVariables = {
     AGORA_CHAT_APPKEY: CHAT_APPKEY,
