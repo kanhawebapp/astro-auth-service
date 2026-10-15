@@ -1037,6 +1037,15 @@ getAstrologerFollowers(
     title: String!
     scheduledAt: String!
   ): LiveStream!
+
+  updateScheduledLive(
+    id: ID!
+    title: String!
+    scheduledAt: String!
+  ): LiveStream!
+
+  deleteScheduledLive(id: ID!): Boolean!
+  
   #----------END CODE FOR LIVE STREAMING--------------
 
   uploadFile(file: Upload!): UploadFileResponse!

@@ -2888,5 +2888,91 @@ export default {
         throw new Error(error.message || "Upload failed");
       }
     },
+
+    // ============================================
+// UPDATE SCHEDULED LIVE
+// ============================================
+
+updateScheduledLive: async (_, { id, title, scheduledAt }, context) => {
+  if (!context.user?.id) {
+    throw new Error("Authentication required");
+  }
+
+  if (!title?.trim()) {
+    throw new Error("Live title is required");
+  }
+
+  const scheduledDate = new Date(scheduledAt);
+
+  if (Number.isNaN(scheduledDate.getTime())) {
+    throw new Error("Invalid scheduled date");
+  }
+
+  if (scheduledDate.getTime() <= Date.now()) {
+    throw new Error("Scheduled date and time must be in the future");
+  }
+
+  // Find a scheduled stream belonging to the logged-in astrologer.
+
+  const existingLive = await prisma.liveStream.findFirst({
+    where: {
+      id,
+      astrologerId: context.user.id,
+      status: "SCHEDULED",
+    },
+  });
+
+  if (!existingLive) {
+    throw new Error(
+      "Scheduled live not found or you are not authorized to edit it"
+    );
+  }
+
+  // Update only the title and scheduled date/time.
+
+  return await prisma.liveStream.update({
+    where: {
+      id: existingLive.id,
+    },
+    data: {
+      title: title.trim(),
+      scheduledAt: scheduledDate,
+    },
+  });
+},
+
+// ============================================
+// DELETE SCHEDULED LIVE
+// ============================================
+
+deleteScheduledLive: async (_, { id }, context) => {
+  if (!context.user?.id) {
+    throw new Error("Authentication required");
+  }
+
+  // Verify that this scheduled stream belongs to the astrologer.
+
+  const existingLive = await prisma.liveStream.findFirst({
+    where: {
+      id,
+      astrologerId: context.user.id,
+      status: "SCHEDULED",
+    },
+  });
+
+  if (!existingLive) {
+    throw new Error(
+      "Scheduled live not found or you are not authorized to delete it"
+    );
+  }
+
+  await prisma.liveStream.delete({
+    where: {
+      id: existingLive.id,
+    },
+  });
+
+  return true;
+},
   },
 };
