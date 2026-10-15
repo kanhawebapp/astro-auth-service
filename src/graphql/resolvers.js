@@ -2195,7 +2195,7 @@ export default {
 
     // STEP 4: Register the astrologer as the room owner if needed.
     const astrologerChatUsername =
-      `astro_${stream.astrologerId}`;
+      `astrologer_${stream.astrologerId}`;
 
     await registerAgoraChatUser({
       username: astrologerChatUsername,
@@ -2266,7 +2266,7 @@ export default {
     // STEP 8: Generate a Chat token for the caller's own account.
     const chatToken =
       await generateAgoraChatUserToken(chatUserId);
-      
+
 
     if (!chatToken) {
       throw new Error("Failed to generate Agora Chat token");
