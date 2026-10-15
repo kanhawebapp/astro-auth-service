@@ -9,13 +9,10 @@ const auth = async (req) => {
   req.cookies?.accessToken ||
   req.headers?.authorization?.replace("Bearer ", "");
 
-console.log("TOKEN:", token);
 
 const decoded = jwt.verify(token, process.env.JWT_SECRET);
-console.log("DECODED:", decoded);
 
 const session = await redis.get(`astro:session:${decoded.id}`);
-console.log("REDIS SESSION:", session);
 
 if (session) {
   console.log("PARSED:", JSON.parse(session));

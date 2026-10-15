@@ -46,7 +46,6 @@ export const registerAstrologerService = async (data) => {
 
 // ================= REQUEST OTP =================
 export const requestOtpService = async (contactNo) => {
-  console.log("-------contactNo----------: ",contactNo);
   const astrologer = await prisma.astrologer.findFirst({
     where: { contactNo },
   });
@@ -72,7 +71,6 @@ export const requestOtpService = async (contactNo) => {
   otp,
 });
 
-  console.log("OTP:", otp);
 
   return {
     message: "OTP sent successfully",
@@ -258,7 +256,6 @@ export const logoutService = async (req, res) => {
   if (!req?.cookies) {
     throw new Error("Request context missing");
   }
-console.log("-------comming in -logoutService--------" )
 
   const token = req.cookies[REFRESH_COOKIE_NAME];
 

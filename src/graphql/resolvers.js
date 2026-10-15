@@ -2183,6 +2183,7 @@ export default {
 
     const appId = process.env.AGORA_APP_ID;
     const chatAppKey = process.env.AGORA_CHAT_APPKEY;
+    console.log("appId,chatAppKey========================",appId,chatAppKey);
 
     if (!appId) {
       throw new Error("AGORA_APP_ID is not configured");
@@ -2203,6 +2204,7 @@ export default {
 
     // STEP 5: Reuse the saved Chat room.
     let chatRoomId = stream.chatRoomId;
+    console.log("chatRoomId-----------:",chatRoomId);
 
     // Fallback for live streams created before this integration.
     if (!chatRoomId) {
@@ -2242,6 +2244,7 @@ export default {
         : `user_${user.id}`;
 
     // Register the caller if this is their first Chat login.
+    console.log("chatUserId------------------",chatUserId);
     await registerAgoraChatUser({
       username: chatUserId,
       nickname: user.name || chatUserId,
@@ -2263,6 +2266,7 @@ export default {
     // STEP 8: Generate a Chat token for the caller's own account.
     const chatToken =
       await generateAgoraChatUserToken(chatUserId);
+      
 
     if (!chatToken) {
       throw new Error("Failed to generate Agora Chat token");
