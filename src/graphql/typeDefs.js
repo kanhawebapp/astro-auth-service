@@ -786,23 +786,23 @@ type LiveAstrologer {
 }
 
 type LiveStream {
-  id: String!
-  astrologerId: String!
-
+  id: ID!
+  astrologerId: ID!
   title: String!
   channelName: String!
 
-  status: LiveStatus!
+  chatRoomId: String
+
+  status: LiveStreamStatus!
 
   scheduledAt: String
   scheduledEndAt: String
 
-  endedAt: String
-
   createdAt: String!
-  updatedAt: String!
+  updatedAt: String
 
-  astrologer: LiveAstrologer
+  startedAt: String
+  endedAt: String
 }
 
 type JoinLiveResponse {
