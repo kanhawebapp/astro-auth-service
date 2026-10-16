@@ -793,7 +793,7 @@ type LiveStream {
 
   chatRoomId: String
 
-  status: LiveStreamStatus!
+  status: LiveStatus!
 
   scheduledAt: String
   scheduledEndAt: String
