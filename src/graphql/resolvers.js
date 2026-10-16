@@ -2292,23 +2292,34 @@ export default {
     throw error;
   }
 },
-    getMyScheduledLives: async (_, __, { user }) => {
-      if (!user) {
-        throw new Error("Unauthorized");
-      }
+   getMyScheduledLives: async (_, __, { user }) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
 
-      return prisma.liveStream.findMany({
-        where: {
-          astrologerId: user.id,
+    const now = new Date();
 
-          status: "SCHEDULED",
+    return await prisma.liveStream.findMany({
+      where: {
+        astrologerId: user.id,
+        status: "SCHEDULED",
+        scheduledEndAt: {
+          gt: now,
         },
+      },
+      orderBy: {
+        scheduledAt: "asc",
+      },
+    });
+  } catch (error) {
+    console.error("getMyScheduledLives Error:", error);
 
-        orderBy: {
-          scheduledAt: "asc",
-        },
-      });
-    },
+    throw new Error(
+      error.message || "Failed to fetch scheduled lives"
+    );
+  }
+},
 
     getCurrentChatMessages: async (_, { roomId }, { user }) => {
       try {
@@ -2795,43 +2806,63 @@ export default {
       return true;
     },
 
-    scheduleLive: async (_, { title, scheduledAt }, { user }) => {
-      try {
-        if (!user) {
-          throw new Error("Unauthorized");
-        }
+    scheduleLive: async (
+  _,
+  { title, scheduledAt, scheduledEndAt },
+  { user }
+) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
 
-        const scheduleDate = new Date(scheduledAt);
+    if (!title?.trim()) {
+      throw new Error("Live title is required");
+    }
 
-        if (isNaN(scheduleDate.getTime())) {
-          throw new Error("Invalid scheduled date");
-        }
+    const scheduleDate = new Date(scheduledAt);
+    const scheduleEndDate = new Date(scheduledEndAt);
 
-        if (scheduleDate <= new Date()) {
-          throw new Error("Scheduled time must be in future");
-        }
+    if (Number.isNaN(scheduleDate.getTime())) {
+      throw new Error("Invalid scheduled start date");
+    }
 
-        const stream = await prisma.liveStream.create({
-          data: {
-            astrologerId: user.id,
+    if (Number.isNaN(scheduleEndDate.getTime())) {
+      throw new Error("Invalid scheduled end date");
+    }
 
-            title,
+    const now = new Date();
 
-            channelName: `astro-${user.id}-${Date.now()}`,
+    if (scheduleDate <= now) {
+      throw new Error("Scheduled start time must be in the future");
+    }
 
-            status: "SCHEDULED",
+    if (scheduleEndDate <= scheduleDate) {
+      throw new Error(
+        "Scheduled end time must be later than the start time"
+      );
+    }
 
-            scheduledAt: scheduleDate,
-          },
-        });
+    const stream = await prisma.liveStream.create({
+      data: {
+        astrologerId: user.id,
+        title: title.trim(),
+        channelName: `astro-${user.id}-${Date.now()}`,
+        status: "SCHEDULED",
+        scheduledAt: scheduleDate,
+        scheduledEndAt: scheduleEndDate,
+      },
+    });
 
-        return stream;
-      } catch (error) {
-        console.error("scheduleLive Error:", error);
+    return stream;
+  } catch (error) {
+    console.error("scheduleLive Error:", error);
 
-        throw new Error(error.message || "Failed to schedule live");
-      }
-    },
+    throw new Error(
+      error.message || "Failed to schedule live"
+    );
+  }
+},
 
     uploadFile: async (_, { file }, { user }) => {
       try {
@@ -2893,52 +2924,77 @@ export default {
 // UPDATE SCHEDULED LIVE
 // ============================================
 
-updateScheduledLive: async (_, { id, title, scheduledAt }, context) => {
-  if (!context.user?.id) {
-    throw new Error("Authentication required");
-  }
+updateScheduledLive: async (
+  _,
+  { id, title, scheduledAt, scheduledEndAt },
+  { user }
+) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
 
-  if (!title?.trim()) {
-    throw new Error("Live title is required");
-  }
+    if (!id) {
+      throw new Error("Live stream ID is required");
+    }
 
-  const scheduledDate = new Date(scheduledAt);
+    if (!title?.trim()) {
+      throw new Error("Live title is required");
+    }
 
-  if (Number.isNaN(scheduledDate.getTime())) {
-    throw new Error("Invalid scheduled date");
-  }
+    const existingLive = await prisma.liveStream.findFirst({
+      where: {
+        id,
+        astrologerId: user.id,
+      },
+    });
 
-  if (scheduledDate.getTime() <= Date.now()) {
-    throw new Error("Scheduled date and time must be in the future");
-  }
+    if (!existingLive) {
+      throw new Error("Scheduled live not found");
+    }
 
-  // Find a scheduled stream belonging to the logged-in astrologer.
+    if (existingLive.status !== "SCHEDULED") {
+      throw new Error("Only scheduled lives can be edited");
+    }
 
-  const existingLive = await prisma.liveStream.findFirst({
-    where: {
-      id,
-      astrologerId: context.user.id,
-      status: "SCHEDULED",
-    },
-  });
+    const scheduleDate = new Date(scheduledAt);
+    const scheduleEndDate = new Date(scheduledEndAt);
 
-  if (!existingLive) {
+    if (Number.isNaN(scheduleDate.getTime())) {
+      throw new Error("Invalid scheduled start date");
+    }
+
+    if (Number.isNaN(scheduleEndDate.getTime())) {
+      throw new Error("Invalid scheduled end date");
+    }
+
+    if (scheduleDate <= new Date()) {
+      throw new Error("Scheduled start time must be in the future");
+    }
+
+    if (scheduleEndDate <= scheduleDate) {
+      throw new Error(
+        "Scheduled end time must be later than the start time"
+      );
+    }
+
+    return await prisma.liveStream.update({
+      where: {
+        id: existingLive.id,
+      },
+      data: {
+        title: title.trim(),
+        scheduledAt: scheduleDate,
+        scheduledEndAt: scheduleEndDate,
+      },
+    });
+  } catch (error) {
+    console.error("updateScheduledLive Error:", error);
+
     throw new Error(
-      "Scheduled live not found or you are not authorized to edit it"
+      error.message || "Failed to update scheduled live"
     );
   }
-
-  // Update only the title and scheduled date/time.
-
-  return await prisma.liveStream.update({
-    where: {
-      id: existingLive.id,
-    },
-    data: {
-      title: title.trim(),
-      scheduledAt: scheduledDate,
-    },
-  });
 },
 
 // ============================================

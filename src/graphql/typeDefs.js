@@ -795,6 +795,8 @@ type LiveStream {
   status: LiveStatus!
 
   scheduledAt: String
+  scheduledEndAt: String
+
   endedAt: String
 
   createdAt: String!
@@ -1036,12 +1038,14 @@ getAstrologerFollowers(
   scheduleLive(
     title: String!
     scheduledAt: String!
+    scheduledEndAt: String!
   ): LiveStream!
 
   updateScheduledLive(
     id: ID!
     title: String!
     scheduledAt: String!
+    scheduledEndAt: String!
   ): LiveStream!
 
   deleteScheduledLive(id: ID!): Boolean!
