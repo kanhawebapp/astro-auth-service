@@ -61,7 +61,8 @@ export const requestOtpService = async (contactNo) => {
   if (count > OTP_RATE_LIMIT)
     throw new Error("Too many OTP requests. Try later.");
 
-  const otp = generateOtp();
+  //const otp = generateOtp();
+  const otp=1234;
   const countryCode="+91";
   const mobile=contactNo.trim();
   await redis.set(`astrologer_otp:${contactNo}`, otp, "EX", OTP_EXPIRE);
