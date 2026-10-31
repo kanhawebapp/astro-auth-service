@@ -223,262 +223,246 @@ export default {
       }
     },
 
-    
-getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+    getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    const astrologerId = user.id;
+        const astrologerId = user.id;
 
-    const {
-      page = 1,
-      limit = 10,
-      userName,
-      status,
-      startDate,
-      endDate,
-      source,
-    } = filter;
+        const {
+          page = 1,
+          limit = 10,
+          userName,
+          status,
+          startDate,
+          endDate,
+          source,
+        } = filter;
 
-    const skip = (page - 1) * limit;
+        const skip = (page - 1) * limit;
 
-    const where = {
-      astrologerId,
-      type: "CHAT",
-      ...(status && {
-        status,
-      }),
+        const where = {
+          astrologerId,
+          type: "CHAT",
+          ...(status && {
+            status,
+          }),
 
-      ...(source && {
-        source,
-      }),
+          ...(source && {
+            source,
+          }),
 
-      ...(startDate || endDate
-        ? {
-            createdAt: {
-              ...(startDate && {
-                gte: new Date(startDate),
-              }),
-              ...(endDate && {
-                lte: new Date(endDate),
-              }),
-            },
-          }
-        : {}),
-    };
+          ...(startDate || endDate
+            ? {
+                createdAt: {
+                  ...(startDate && {
+                    gte: new Date(startDate),
+                  }),
+                  ...(endDate && {
+                    lte: new Date(endDate),
+                  }),
+                },
+              }
+            : {}),
+        };
 
-    /* =====================================
+        /* =====================================
        TOTAL COUNT
     ===================================== */
 
-    const totalCount = await prisma.session.count({
-      where,
-    });
+        const totalCount = await prisma.session.count({
+          where,
+        });
 
-    /* =====================================
+        /* =====================================
        FETCH SESSIONS
     ===================================== */
 
-    const sessions = await prisma.session.findMany({
-      where,
+        const sessions = await prisma.session.findMany({
+          where,
 
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            mobile: true,
-            countryCode: true,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                mobile: true,
+                countryCode: true,
+              },
+            },
+
+            review: {
+              select: {
+                rating: true,
+                comment: true,
+              },
+            },
+
+            // Messages are optional; roomId comes directly from Session.
+            messages: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 1,
+              select: {
+                roomId: true,
+                message: true,
+              },
+            },
           },
-        },
 
-        review: {
-          select: {
-            rating: true,
-            comment: true,
-          },
-        },
-
-        // Messages are optional; roomId comes directly from Session.
-        messages: {
           orderBy: {
             createdAt: "desc",
           },
-          take: 1,
-          select: {
-            roomId: true,
-            message: true,
-          },
-        },
-      },
 
-      orderBy: {
-        createdAt: "desc",
-      },
+          skip,
+          take: limit,
+        });
 
-      skip,
-      take: limit,
-    });
-
-    /* =====================================
+        /* =====================================
        GET ROOM IDS FROM SESSION
     ===================================== */
 
-    const roomIds = [
-      ...new Set(
-        sessions
-          .map((session) => session.roomId)
-          .filter(Boolean)
-      ),
-    ];
+        const roomIds = [
+          ...new Set(sessions.map((session) => session.roomId).filter(Boolean)),
+        ];
 
-    /* =====================================
+        /* =====================================
        FETCH MATCHING INTAKES
     ===================================== */
 
-    let intakeMap = new Map();
+        let intakeMap = new Map();
 
-    if (roomIds.length > 0) {
-      const intakes = await prisma.intake.findMany({
-        where: {
-          chatId: {
-            in: roomIds,
-          },
-        },
+        if (roomIds.length > 0) {
+          const intakes = await prisma.intake.findMany({
+            where: {
+              chatId: {
+                in: roomIds,
+              },
+            },
 
-        select: {
-          chatId: true,
-          name: true,
-          birthPlace: true,
-          birthDate: true,
-          birthTime: true,
-          occupation: true,
-          gender: true,
-          createdAt: true,
-          source: true,
-        },
-      });
+            select: {
+              chatId: true,
+              name: true,
+              birthPlace: true,
+              birthDate: true,
+              birthTime: true,
+              occupation: true,
+              gender: true,
+              createdAt: true,
+              source: true,
+            },
+          });
 
-      console.log("intakes--------------------data------:", intakes);
+          console.log("intakes--------------------data------:", intakes);
 
-      intakeMap = new Map(
-        intakes.map((intake) => [intake.chatId, intake])
-      );
-    }
+          intakeMap = new Map(intakes.map((intake) => [intake.chatId, intake]));
+        }
 
-    /* =====================================
+        /* =====================================
        OPTIONAL SEARCH BY INTAKE NAME
     ===================================== */
 
-    let filteredSessions = sessions;
+        let filteredSessions = sessions;
 
-    if (userName) {
-      filteredSessions = sessions.filter((session) => {
-        const roomId = session.roomId;
-        const intake = intakeMap.get(roomId);
+        if (userName) {
+          filteredSessions = sessions.filter((session) => {
+            const roomId = session.roomId;
+            const intake = intakeMap.get(roomId);
 
-        return intake?.name
-          ?.toLowerCase()
-          .includes(userName.toLowerCase());
-      });
-    }
+            return intake?.name?.toLowerCase().includes(userName.toLowerCase());
+          });
+        }
 
-    /* =====================================
+        /* =====================================
        RESPONSE DATA
     ===================================== */
 
-    const data = filteredSessions.map((session) => {
-      const lastMessage = session.messages?.[0] || null;
+        const data = filteredSessions.map((session) => {
+          const lastMessage = session.messages?.[0] || null;
 
-      // Always get roomId from Session, not Message.
-      const roomId = session.roomId;
+          // Always get roomId from Session, not Message.
+          const roomId = session.roomId;
 
-      const intake = intakeMap.get(roomId);
+          const intake = intakeMap.get(roomId);
 
-      const durationMinutes = session.durationSec
-        ? session.durationSec
-        : 0;
+          const durationMinutes = session.durationSec ? session.durationSec : 0;
 
-      return {
-        sessionId: session.id,
-        userId: session.user?.id || null,
-        roomId,
+          return {
+            sessionId: session.id,
+            userId: session.user?.id || null,
+            roomId,
 
-        // Intake name, falling back to the registered user's name.
-        userName: intake?.name || session.user?.name || "",
+            // Intake name, falling back to the registered user's name.
+            userName: intake?.name || session.user?.name || "",
 
-        userMobile: session.user?.mobile || "",
+            userMobile: session.user?.mobile || "",
 
-        userCountryCode: session.user?.countryCode || "",
+            userCountryCode: session.user?.countryCode || "",
 
-        birthPlace: intake?.birthPlace || "",
+            birthPlace: intake?.birthPlace || "",
 
-        birthDate: intake?.birthDate
-          ? intake.birthDate.toISOString()
-          : null,
+            birthDate: intake?.birthDate
+              ? intake.birthDate.toISOString()
+              : null,
 
-        birthTime: intake?.birthTime || "",
+            birthTime: intake?.birthTime || "",
 
-        occupation: intake?.occupation || "",
+            occupation: intake?.occupation || "",
 
-        gender: intake?.gender || null,
+            gender: intake?.gender || null,
 
-        intakeName: intake?.name || "",
+            intakeName: intake?.name || "",
 
-        startedAt: session.startedAt
-          ? session.startedAt.toISOString()
-          : null,
+            startedAt: session.startedAt
+              ? session.startedAt.toISOString()
+              : null,
 
-        endedAt: session.endedAt
-          ? session.endedAt.toISOString()
-          : null,
+            endedAt: session.endedAt ? session.endedAt.toISOString() : null,
 
-        createdAt: session.createdAt
-          ? session.createdAt.toISOString()
-          : null,
+            createdAt: session.createdAt
+              ? session.createdAt.toISOString()
+              : null,
 
-        status: session.status,
+            status: session.status,
 
-        durationSec: session.durationSec || 0,
+            durationSec: session.durationSec || 0,
 
-        durationMinutes,
+            durationMinutes,
 
-        ratePerMin: session.ratePerMin || 0,
+            ratePerMin: session.ratePerMin || 0,
 
-        coinsEarned: session.coinsEarned || 0,
+            coinsEarned: session.coinsEarned || 0,
 
-        commission: session.commission || 0,
+            commission: session.commission || 0,
 
-        rating: session.review?.rating ?? null,
+            rating: session.review?.rating ?? null,
 
-        reviewComment: session.review?.comment ?? null,
+            reviewComment: session.review?.comment ?? null,
 
-        lastMessage: lastMessage?.message || "",
+            lastMessage: lastMessage?.message || "",
 
-        source: session.source || null,
+            source: session.source || null,
 
-        intakeSource: intake?.source || null,
-      };
-    });
+            intakeSource: intake?.source || null,
+          };
+        });
 
-    return {
-      success: true,
-      totalCount,
-      currentPage: page,
-      totalPages: Math.ceil(totalCount / limit),
-      data,
-    };
-  } catch (error) {
-    console.error("getAstrologerChatHistory error:", error);
+        return {
+          success: true,
+          totalCount,
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          data,
+        };
+      } catch (error) {
+        console.error("getAstrologerChatHistory error:", error);
 
-    throw new Error(
-      error.message || "Failed to fetch chat history"
-    );
-  }
-},
-
+        throw new Error(error.message || "Failed to fetch chat history");
+      }
+    },
 
     getSessionMessages: async (_, { sessionId }, { user }) => {
       try {
@@ -2155,184 +2139,177 @@ getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
       }
     },
 
-  joinLive: async (_, { channelName, role }, { user }) => {
-  try {
-    // STEP 1: Authenticate the caller.
-    if (!user) {
-      throw new GraphQLError("Unauthorized", {
-        extensions: {
-          code: "UNAUTHENTICATED",
-        },
-      });
-    }
+    joinLive: async (_, { channelName, role }, { user }) => {
+      try {
+        // STEP 1: Authenticate the caller.
+        if (!user) {
+          throw new GraphQLError("Unauthorized", {
+            extensions: {
+              code: "UNAUTHENTICATED",
+            },
+          });
+        }
 
-    if (!["publisher", "subscriber"].includes(role)) {
-      throw new Error("Invalid Agora role");
-    }
+        if (!["publisher", "subscriber"].includes(role)) {
+          throw new Error("Invalid Agora role");
+        }
 
-    // STEP 2: Find the active stream.
-    const stream = await prisma.liveStream.findFirst({
-      where: {
-        channelName,
-        status: "LIVE",
-      },
-    });
-
-    if (!stream) {
-      throw new Error("Live stream not found");
-    }
-
-    // STEP 3: Only the owner astrologer may publish.
-    if (role === "publisher" && user.id !== stream.astrologerId) {
-      throw new GraphQLError(
-        "Only the astrologer who owns this stream can publish",
-        {
-          extensions: {
-            code: "FORBIDDEN",
+        // STEP 2: Find the active stream.
+        const stream = await prisma.liveStream.findFirst({
+          where: {
+            channelName,
+            status: "LIVE",
           },
-        },
-      );
-    }
+        });
 
-    const appId = process.env.AGORA_APP_ID;
-    const chatAppKey = process.env.AGORA_CHAT_APPKEY;
-    console.log("appId,chatAppKey========================",appId,chatAppKey);
+        if (!stream) {
+          throw new Error("Live stream not found");
+        }
 
-    if (!appId) {
-      throw new Error("AGORA_APP_ID is not configured");
-    }
+        // STEP 3: Only the owner astrologer may publish.
+        if (role === "publisher" && user.id !== stream.astrologerId) {
+          throw new GraphQLError(
+            "Only the astrologer who owns this stream can publish",
+            {
+              extensions: {
+                code: "FORBIDDEN",
+              },
+            },
+          );
+        }
 
-    if (!chatAppKey) {
-      throw new Error("AGORA_CHAT_APPKEY is not configured");
-    }
+        const appId = process.env.AGORA_APP_ID;
+        const chatAppKey = process.env.AGORA_CHAT_APPKEY;
+        console.log(
+          "appId,chatAppKey========================",
+          appId,
+          chatAppKey,
+        );
 
-    // STEP 4: Register the astrologer as the room owner if needed.
-    const astrologerChatUsername =
-      `astrologer_${stream.astrologerId}`;
+        if (!appId) {
+          throw new Error("AGORA_APP_ID is not configured");
+        }
 
-    await registerAgoraChatUser({
-      username: astrologerChatUsername,
-      nickname: astrologerChatUsername,
-    });
+        if (!chatAppKey) {
+          throw new Error("AGORA_CHAT_APPKEY is not configured");
+        }
 
-    // STEP 5: Reuse the saved Chat room.
-    let chatRoomId = stream.chatRoomId;
-    console.log("chatRoomId-----------:",chatRoomId);
+        // STEP 4: Register the astrologer as the room owner if needed.
+        const astrologerChatUsername = `astrologer_${stream.astrologerId}`;
 
-    // Fallback for live streams created before this integration.
-    if (!chatRoomId) {
-      const room = await createAgoraChatRoom({
-        name: `live_${stream.id}`,
-        description: `Live chat for ${stream.title}`,
-        maxusers: 100,
-        owner: astrologerChatUsername,
-      });
+        await registerAgoraChatUser({
+          username: astrologerChatUsername,
+          nickname: astrologerChatUsername,
+        });
 
-      chatRoomId =
-        room?.id ||
-        room?.chatroomid ||
-        room?.chatroomId ||
-        null;
+        // STEP 5: Reuse the saved Chat room.
+        let chatRoomId = stream.chatRoomId;
+        console.log("chatRoomId-----------:", chatRoomId);
 
-      if (!chatRoomId) {
-        throw new Error("Failed to create Agora Chat room");
-      }
+        // Fallback for live streams created before this integration.
+        if (!chatRoomId) {
+          const room = await createAgoraChatRoom({
+            name: `live_${stream.id}`,
+            description: `Live chat for ${stream.title}`,
+            maxusers: 100,
+            owner: astrologerChatUsername,
+          });
 
-      await prisma.liveStream.update({
-        where: {
-          id: stream.id,
-        },
-        data: {
+          chatRoomId = room?.id || room?.chatroomid || room?.chatroomId || null;
+
+          if (!chatRoomId) {
+            throw new Error("Failed to create Agora Chat room");
+          }
+
+          await prisma.liveStream.update({
+            where: {
+              id: stream.id,
+            },
+            data: {
+              chatRoomId,
+            },
+          });
+        }
+
+        // STEP 6: Use the caller's own Chat identity.
+        // Astrologer: astro_<astrologer database ID>
+        // Viewer:     user_<user database ID>
+        const chatUserId =
+          role === "publisher" ? astrologerChatUsername : `user_${user.id}`;
+
+        // Register the caller if this is their first Chat login.
+        console.log("chatUserId------------------", chatUserId);
+        await registerAgoraChatUser({
+          username: chatUserId,
+          nickname: user.name || chatUserId,
+        });
+
+        // STEP 7: Generate the RTC token.
+        const uid = Math.floor(Math.random() * 100000) + 1;
+
+        const rtcToken = generateRtcToken({
+          channelName,
+          uid,
+          role,
+        });
+
+        if (!rtcToken) {
+          throw new Error("Failed to generate Agora RTC token");
+        }
+
+        // STEP 8: Generate a Chat token for the caller's own account.
+        const chatToken = await generateAgoraChatUserToken(chatUserId);
+
+        if (!chatToken) {
+          throw new Error("Failed to generate Agora Chat token");
+        }
+
+        // STEP 9: Return credentials and the shared room ID.
+        return {
+          appId,
+          channelName,
+          uid,
+          rtcToken,
+          chatUserId,
+          chatToken,
           chatRoomId,
-        },
-      });
-    }
+          chatAppKey,
+        };
+      } catch (error) {
+        console.error("joinLive error:", {
+          message: error.message,
+          code: error.extensions?.code,
+        });
 
-    // STEP 6: Use the caller's own Chat identity.
-    // Astrologer: astro_<astrologer database ID>
-    // Viewer:     user_<user database ID>
-    const chatUserId =
-      role === "publisher"
-        ? astrologerChatUsername
-        : `user_${user.id}`;
+        throw error;
+      }
+    },
+    getMyScheduledLives: async (_, __, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    // Register the caller if this is their first Chat login.
-    console.log("chatUserId------------------",chatUserId);
-    await registerAgoraChatUser({
-      username: chatUserId,
-      nickname: user.name || chatUserId,
-    });
+        const now = new Date();
 
-    // STEP 7: Generate the RTC token.
-    const uid = Math.floor(Math.random() * 100000) + 1;
+        return await prisma.liveStream.findMany({
+          where: {
+            astrologerId: user.id,
+            status: "SCHEDULED",
+            scheduledEndAt: {
+              gt: now,
+            },
+          },
+          orderBy: {
+            scheduledAt: "asc",
+          },
+        });
+      } catch (error) {
+        console.error("getMyScheduledLives Error:", error);
 
-    const rtcToken = generateRtcToken({
-      channelName,
-      uid,
-      role,
-    });
-
-    if (!rtcToken) {
-      throw new Error("Failed to generate Agora RTC token");
-    }
-
-    // STEP 8: Generate a Chat token for the caller's own account.
-    const chatToken =
-      await generateAgoraChatUserToken(chatUserId);
-
-
-    if (!chatToken) {
-      throw new Error("Failed to generate Agora Chat token");
-    }
-
-    // STEP 9: Return credentials and the shared room ID.
-    return {
-      appId,
-      channelName,
-      uid,
-      rtcToken,
-      chatUserId,
-      chatToken,
-      chatRoomId,
-      chatAppKey,
-    };
-  } catch (error) {
-    console.error("joinLive error:", {
-      message: error.message,
-      code: error.extensions?.code,
-    });
-
-    throw error;
-  }
-},
-   getMyScheduledLives: async (_, __, { user }) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
-    const now = new Date();
-
-    return await prisma.liveStream.findMany({
-      where: {
-        astrologerId: user.id,
-        status: "SCHEDULED",
-        scheduledEndAt: {
-          gt: now,
-        },
-      },
-      orderBy: {
-        scheduledAt: "asc",
-      },
-    });
-  } catch (error) {
-    console.error("getMyScheduledLives Error:", error);
-
-    throw new Error(
-      error.message || "Failed to fetch scheduled lives"
-    );
-  }
-},
+        throw new Error(error.message || "Failed to fetch scheduled lives");
+      }
+    },
 
     getCurrentChatMessages: async (_, { roomId }, { user }) => {
       try {
@@ -2665,127 +2642,166 @@ getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
       };
     },
 
-   startLive: async (_, { title }, { user }) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
-    if (!title?.trim()) {
-      throw new Error("Live title is required");
-    }
-
-    // Fetch the authenticated astrologer's details.
-    const astrologer = await prisma.astrologer.findUnique({
-      where: {
-        id: user.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-      },
-    });
-
-    if (!astrologer) {
-      throw new Error("Astrologer not found");
-    }
-
-    // Prevent an astrologer from starting multiple live streams.
-    const existingLive = await prisma.liveStream.findFirst({
-      where: {
-        astrologerId: user.id,
-        status: "LIVE",
-      },
-    });
-
-    if (existingLive) {
-      throw new Error("You already have an active live stream");
-    }
-
-    // Reuse the astrologer's next scheduled stream, if available.
-    const scheduledStream = await prisma.liveStream.findFirst({
-      where: {
-        astrologerId: user.id,
-        status: "SCHEDULED",
-      },
-      orderBy: {
-        scheduledAt: "asc",
-      },
-    });
-
-    const streamTitle = scheduledStream?.title || title.trim();
-
-    // This must be the same username used by joinLive.
-    const chatUsername = `astro_${astrologer.id}`;
-
-    // STEP 1: Ensure the astrologer exists in Agora Chat.
-    await registerAgoraChatUser({
-      username: chatUsername,
-      nickname:
-        astrologer.displayName ||
-        astrologer.name ||
-        chatUsername,
-    });
-
-    // STEP 2: Reuse the room if this scheduled stream already has one.
-    let chatRoomId = scheduledStream?.chatRoomId || null;
-
-    if (!chatRoomId) {
-      const room = await createAgoraChatRoom({
-        name: `live_${astrologer.id}_${Date.now()}`,
-        description: `Live chat for ${streamTitle}`,
-        maxusers: 100,
-        owner: chatUsername,
-      });
-
-      chatRoomId =
-        room?.id ||
-        room?.chatroomid ||
-        room?.chatroomId ||
-        null;
-
-      if (!chatRoomId) {
-        console.error(
-          "Agora Chat room response did not contain a room ID",
-        );
-
-        throw new Error("Agora Chat room creation failed");
+    startLiveToggleServices: async (
+      _,
+      { astrologerId, serviceType, status },
+      { user },
+    ) => {
+      if (!user) {
+        throw new Error("Unauthorized");
       }
-    }
 
-    // STEP 3: Start the scheduled stream or create a new one.
-    if (scheduledStream) {
-      return await prisma.liveStream.update({
+      const fieldMap = {
+        CHAT: "isChatActive",
+        CALL: "isCallActive",
+        LIVE: "isLiveActive",
+        PROMOTIONAL: "isPromotional",
+      };
+
+      const field = fieldMap[serviceType];
+
+      if (!field) {
+        throw new Error("Invalid service type");
+      }
+
+      const updateData = {
+        [field]: status,
+      };
+
+      // When LIVE is enabled, disable CALL and CHAT automatically.
+      if (serviceType === "LIVE" && status === true) {
+        updateData.isChatActive = false;
+        updateData.isCallActive = false;
+      }
+
+      await prisma.astrologer.update({
         where: {
-          id: scheduledStream.id,
+          id: astrologerId,
         },
-        data: {
-          status: "LIVE",
-          startedAt: new Date(),
-          chatRoomId,
-        },
+        data: updateData,
       });
-    }
 
-    return await prisma.liveStream.create({
-      data: {
-        astrologerId: astrologer.id,
-        title: streamTitle,
-        channelName: `astro-${astrologer.id}-${Date.now()}`,
-        status: "LIVE",
-        startedAt: new Date(),
-        chatRoomId,
-      },
-    });
-  } catch (error) {
-    console.error("startLive error:", {
-      message: error.message,
-    });
+      return {
+        success: true,
+        message:
+          serviceType === "LIVE" && status
+            ? "LIVE enabled successfully. CHAT and CALL disabled."
+            : `${serviceType} ${status ? "enabled" : "disabled"} successfully`,
+      };
+    },
 
-    throw new Error(error.message || "Failed to start live stream");
-  }
-},
+    startLive: async (_, { title }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
+
+        if (!title?.trim()) {
+          throw new Error("Live title is required");
+        }
+
+        // Fetch the authenticated astrologer's details.
+        const astrologer = await prisma.astrologer.findUnique({
+          where: {
+            id: user.id,
+          },
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+          },
+        });
+
+        if (!astrologer) {
+          throw new Error("Astrologer not found");
+        }
+
+        // Prevent an astrologer from starting multiple live streams.
+        const existingLive = await prisma.liveStream.findFirst({
+          where: {
+            astrologerId: user.id,
+            status: "LIVE",
+          },
+        });
+
+        if (existingLive) {
+          throw new Error("You already have an active live stream");
+        }
+
+        // Reuse the astrologer's next scheduled stream, if available.
+        const scheduledStream = await prisma.liveStream.findFirst({
+          where: {
+            astrologerId: user.id,
+            status: "SCHEDULED",
+          },
+          orderBy: {
+            scheduledAt: "asc",
+          },
+        });
+
+        const streamTitle = scheduledStream?.title || title.trim();
+
+        // This must be the same username used by joinLive.
+        const chatUsername = `astro_${astrologer.id}`;
+
+        // STEP 1: Ensure the astrologer exists in Agora Chat.
+        await registerAgoraChatUser({
+          username: chatUsername,
+          nickname: astrologer.displayName || astrologer.name || chatUsername,
+        });
+
+        // STEP 2: Reuse the room if this scheduled stream already has one.
+        let chatRoomId = scheduledStream?.chatRoomId || null;
+
+        if (!chatRoomId) {
+          const room = await createAgoraChatRoom({
+            name: `live_${astrologer.id}_${Date.now()}`,
+            description: `Live chat for ${streamTitle}`,
+            maxusers: 100,
+            owner: chatUsername,
+          });
+
+          chatRoomId = room?.id || room?.chatroomid || room?.chatroomId || null;
+
+          if (!chatRoomId) {
+            console.error("Agora Chat room response did not contain a room ID");
+
+            throw new Error("Agora Chat room creation failed");
+          }
+        }
+
+        // STEP 3: Start the scheduled stream or create a new one.
+        if (scheduledStream) {
+          return await prisma.liveStream.update({
+            where: {
+              id: scheduledStream.id,
+            },
+            data: {
+              status: "LIVE",
+              startedAt: new Date(),
+              chatRoomId,
+            },
+          });
+        }
+
+        return await prisma.liveStream.create({
+          data: {
+            astrologerId: astrologer.id,
+            title: streamTitle,
+            channelName: `astro-${astrologer.id}-${Date.now()}`,
+            status: "LIVE",
+            startedAt: new Date(),
+            chatRoomId,
+          },
+        });
+      } catch (error) {
+        console.error("startLive error:", {
+          message: error.message,
+        });
+
+        throw new Error(error.message || "Failed to start live stream");
+      }
+    },
 
     endLive: async (_, { streamId }, { user }) => {
       if (!user) {
@@ -2820,62 +2836,60 @@ getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
     },
 
     scheduleLive: async (
-  _,
-  { title, scheduledAt, scheduledEndAt },
-  { user }
-) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+      _,
+      { title, scheduledAt, scheduledEndAt },
+      { user },
+    ) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    if (!title?.trim()) {
-      throw new Error("Live title is required");
-    }
+        if (!title?.trim()) {
+          throw new Error("Live title is required");
+        }
 
-    const scheduleDate = new Date(scheduledAt);
-    const scheduleEndDate = new Date(scheduledEndAt);
+        const scheduleDate = new Date(scheduledAt);
+        const scheduleEndDate = new Date(scheduledEndAt);
 
-    if (Number.isNaN(scheduleDate.getTime())) {
-      throw new Error("Invalid scheduled start date");
-    }
+        if (Number.isNaN(scheduleDate.getTime())) {
+          throw new Error("Invalid scheduled start date");
+        }
 
-    if (Number.isNaN(scheduleEndDate.getTime())) {
-      throw new Error("Invalid scheduled end date");
-    }
+        if (Number.isNaN(scheduleEndDate.getTime())) {
+          throw new Error("Invalid scheduled end date");
+        }
 
-    const now = new Date();
+        const now = new Date();
 
-    if (scheduleDate <= now) {
-      throw new Error("Scheduled start time must be in the future");
-    }
+        if (scheduleDate <= now) {
+          throw new Error("Scheduled start time must be in the future");
+        }
 
-    if (scheduleEndDate <= scheduleDate) {
-      throw new Error(
-        "Scheduled end time must be later than the start time"
-      );
-    }
+        if (scheduleEndDate <= scheduleDate) {
+          throw new Error(
+            "Scheduled end time must be later than the start time",
+          );
+        }
 
-    const stream = await prisma.liveStream.create({
-      data: {
-        astrologerId: user.id,
-        title: title.trim(),
-        channelName: `astro-${user.id}-${Date.now()}`,
-        status: "SCHEDULED",
-        scheduledAt: scheduleDate,
-        scheduledEndAt: scheduleEndDate,
-      },
-    });
+        const stream = await prisma.liveStream.create({
+          data: {
+            astrologerId: user.id,
+            title: title.trim(),
+            channelName: `astro-${user.id}-${Date.now()}`,
+            status: "SCHEDULED",
+            scheduledAt: scheduleDate,
+            scheduledEndAt: scheduleEndDate,
+          },
+        });
 
-    return stream;
-  } catch (error) {
-    console.error("scheduleLive Error:", error);
+        return stream;
+      } catch (error) {
+        console.error("scheduleLive Error:", error);
 
-    throw new Error(
-      error.message || "Failed to schedule live"
-    );
-  }
-},
+        throw new Error(error.message || "Failed to schedule live");
+      }
+    },
 
     uploadFile: async (_, { file }, { user }) => {
       try {
@@ -2934,114 +2948,112 @@ getAstrologerChatHistory: async (_, { filter = {} }, { user }) => {
     },
 
     // ============================================
-// UPDATE SCHEDULED LIVE
-// ============================================
+    // UPDATE SCHEDULED LIVE
+    // ============================================
 
-updateScheduledLive: async (
-  _,
-  { id, title, scheduledAt, scheduledEndAt },
-  { user }
-) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+    updateScheduledLive: async (
+      _,
+      { id, title, scheduledAt, scheduledEndAt },
+      { user },
+    ) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    if (!id) {
-      throw new Error("Live stream ID is required");
-    }
+        if (!id) {
+          throw new Error("Live stream ID is required");
+        }
 
-    if (!title?.trim()) {
-      throw new Error("Live title is required");
-    }
+        if (!title?.trim()) {
+          throw new Error("Live title is required");
+        }
 
-    const existingLive = await prisma.liveStream.findFirst({
-      where: {
-        id,
-        astrologerId: user.id,
-      },
-    });
+        const existingLive = await prisma.liveStream.findFirst({
+          where: {
+            id,
+            astrologerId: user.id,
+          },
+        });
 
-    if (!existingLive) {
-      throw new Error("Scheduled live not found");
-    }
+        if (!existingLive) {
+          throw new Error("Scheduled live not found");
+        }
 
-    if (existingLive.status !== "SCHEDULED") {
-      throw new Error("Only scheduled lives can be edited");
-    }
+        if (existingLive.status !== "SCHEDULED") {
+          throw new Error("Only scheduled lives can be edited");
+        }
 
-    const scheduleDate = new Date(scheduledAt);
-    const scheduleEndDate = new Date(scheduledEndAt);
+        const scheduleDate = new Date(scheduledAt);
+        const scheduleEndDate = new Date(scheduledEndAt);
 
-    if (Number.isNaN(scheduleDate.getTime())) {
-      throw new Error("Invalid scheduled start date");
-    }
+        if (Number.isNaN(scheduleDate.getTime())) {
+          throw new Error("Invalid scheduled start date");
+        }
 
-    if (Number.isNaN(scheduleEndDate.getTime())) {
-      throw new Error("Invalid scheduled end date");
-    }
+        if (Number.isNaN(scheduleEndDate.getTime())) {
+          throw new Error("Invalid scheduled end date");
+        }
 
-    if (scheduleDate <= new Date()) {
-      throw new Error("Scheduled start time must be in the future");
-    }
+        if (scheduleDate <= new Date()) {
+          throw new Error("Scheduled start time must be in the future");
+        }
 
-    if (scheduleEndDate <= scheduleDate) {
-      throw new Error(
-        "Scheduled end time must be later than the start time"
-      );
-    }
+        if (scheduleEndDate <= scheduleDate) {
+          throw new Error(
+            "Scheduled end time must be later than the start time",
+          );
+        }
 
-    return await prisma.liveStream.update({
-      where: {
-        id: existingLive.id,
-      },
-      data: {
-        title: title.trim(),
-        scheduledAt: scheduleDate,
-        scheduledEndAt: scheduleEndDate,
-      },
-    });
-  } catch (error) {
-    console.error("updateScheduledLive Error:", error);
+        return await prisma.liveStream.update({
+          where: {
+            id: existingLive.id,
+          },
+          data: {
+            title: title.trim(),
+            scheduledAt: scheduleDate,
+            scheduledEndAt: scheduleEndDate,
+          },
+        });
+      } catch (error) {
+        console.error("updateScheduledLive Error:", error);
 
-    throw new Error(
-      error.message || "Failed to update scheduled live"
-    );
-  }
-},
-
-// ============================================
-// DELETE SCHEDULED LIVE
-// ============================================
-
-deleteScheduledLive: async (_, { id }, context) => {
-  if (!context.user?.id) {
-    throw new Error("Authentication required");
-  }
-
-  // Verify that this scheduled stream belongs to the astrologer.
-
-  const existingLive = await prisma.liveStream.findFirst({
-    where: {
-      id,
-      astrologerId: context.user.id,
-      status: "SCHEDULED",
+        throw new Error(error.message || "Failed to update scheduled live");
+      }
     },
-  });
 
-  if (!existingLive) {
-    throw new Error(
-      "Scheduled live not found or you are not authorized to delete it"
-    );
-  }
+    // ============================================
+    // DELETE SCHEDULED LIVE
+    // ============================================
 
-  await prisma.liveStream.delete({
-    where: {
-      id: existingLive.id,
+    deleteScheduledLive: async (_, { id }, context) => {
+      if (!context.user?.id) {
+        throw new Error("Authentication required");
+      }
+
+      // Verify that this scheduled stream belongs to the astrologer.
+
+      const existingLive = await prisma.liveStream.findFirst({
+        where: {
+          id,
+          astrologerId: context.user.id,
+          status: "SCHEDULED",
+        },
+      });
+
+      if (!existingLive) {
+        throw new Error(
+          "Scheduled live not found or you are not authorized to delete it",
+        );
+      }
+
+      await prisma.liveStream.delete({
+        where: {
+          id: existingLive.id,
+        },
+      });
+
+      return true;
     },
-  });
-
-  return true;
-},
   },
 };

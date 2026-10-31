@@ -3,7 +3,7 @@ import gql from "graphql-tag";
 export default gql`
   # ================= ENUMS =================
   scalar Upload
-  
+
   enum Gender {
     MALE
     FEMALE
@@ -27,30 +27,30 @@ export default gql`
 
   # ================= TYPES =================
 
- type Astrologer {
-  id: ID!
-  profilePic: String!
-  name: String!
-  dateOfBirth: String!
-  gender: Gender!
-  languages: [String!]!
-  skills: [String!]!
-  experience: Int!
-  email: String!
-  contactNo: String!
-  about: String!
-  approvalStatus: ApprovalStatus!
-  adminRemarks: String
-  addresses: [Address!]!
-  experiences: [ExperiencePlatform!]!
-  createdAt: String
-  updatedAt: String
+  type Astrologer {
+    id: ID!
+    profilePic: String!
+    name: String!
+    dateOfBirth: String!
+    gender: Gender!
+    languages: [String!]!
+    skills: [String!]!
+    experience: Int!
+    email: String!
+    contactNo: String!
+    about: String!
+    approvalStatus: ApprovalStatus!
+    adminRemarks: String
+    addresses: [Address!]!
+    experiences: [ExperiencePlatform!]!
+    createdAt: String
+    updatedAt: String
 
-  isChatActive: Boolean
-  isCallActive: Boolean
-  isLiveActive: Boolean
-  isPromotional: Boolean
-}
+    isChatActive: Boolean
+    isCallActive: Boolean
+    isLiveActive: Boolean
+    isPromotional: Boolean
+  }
 
   type Address {
     street: String!
@@ -125,7 +125,7 @@ export default gql`
     coins: Int
     description: String
     createdAt: String
-      sessionId: String
+    sessionId: String
   }
 
   type AstrologerEarningResponse {
@@ -147,7 +147,7 @@ export default gql`
   type AstrologerChatHistoryItem {
     sessionId: String
     roomId: String
-userId: ID
+    userId: ID
     userName: String
     userMobile: String
     userCountryCode: String
@@ -177,7 +177,7 @@ userId: ID
     reviewComment: String
 
     lastMessage: String
-    source: String 
+    source: String
   }
 
   type AstrologerChatHistoryResponse {
@@ -235,7 +235,7 @@ userId: ID
   type AstrologerCallHistoryItem {
     sessionId: String
     roomId: String
-userId: ID
+    userId: ID
     userName: String
     userMobile: String
     userCountryCode: String
@@ -253,7 +253,7 @@ userId: ID
 
     coinsEarned: Float
     commission: Float
-    source: String 
+    source: String
     lastMessage: String
   }
 
@@ -262,7 +262,7 @@ userId: ID
     totalCount: Int!
     currentPage: Int!
     totalPages: Int!
-    
+
     data: [AstrologerCallHistoryItem!]!
   }
 
@@ -289,7 +289,7 @@ userId: ID
     coins: Int
 
     description: String
-sessionId: String
+    sessionId: String
     createdAt: String!
   }
 
@@ -360,13 +360,13 @@ sessionId: String
   }
 
   enum PricingType {
-  CHAT
-  CALL
-  VIDEO
-  AUDIO
-  GIFT_COMMISSION
-  OFFER
-}
+    CHAT
+    CALL
+    VIDEO
+    AUDIO
+    GIFT_COMMISSION
+    OFFER
+  }
 
   type AstrologerPricing {
     id: ID
@@ -501,67 +501,67 @@ sessionId: String
   #--END code for getUser Details-------
 
   #-----------------start code for getAstrologerSessions----------------------
-#-----------------start code for getAstrologerSessions----------------------
+  #-----------------start code for getAstrologerSessions----------------------
 
-input AstrologerSessionFilterInput {
-  page: Int
-  limit: Int
-  userName: String
-  source: String
-  startDate: String
-  endDate: String
-  sessionType: SessionType 
-}
+  input AstrologerSessionFilterInput {
+    page: Int
+    limit: Int
+    userName: String
+    source: String
+    startDate: String
+    endDate: String
+    sessionType: SessionType
+  }
 
-type AstrologerSessionItem {
-  sessionId: String
-  chatId: String
-  sessionType: SessionType  
-  status: SessionStatus     
-  userId: String
-  userName: String
-  userMobile: String
-  userCountryCode: String
-  birthPlace: String
-  birthDate: String
-  birthTime: String
-  occupation: String
-  gender: String
-  rating: Int
-  reviewComment: String
-  startedAt: String
-  endedAt: String
-  createdAt: String
-  durationSec: Int
-  durationMinutes: Int
-  ratePerMin: Int
-  coinsEarned: Float
-  commission: Float
-  source: String
-}
+  type AstrologerSessionItem {
+    sessionId: String
+    chatId: String
+    sessionType: SessionType
+    status: SessionStatus
+    userId: String
+    userName: String
+    userMobile: String
+    userCountryCode: String
+    birthPlace: String
+    birthDate: String
+    birthTime: String
+    occupation: String
+    gender: String
+    rating: Int
+    reviewComment: String
+    startedAt: String
+    endedAt: String
+    createdAt: String
+    durationSec: Int
+    durationMinutes: Int
+    ratePerMin: Int
+    coinsEarned: Float
+    commission: Float
+    source: String
+  }
 
-type AstrologerSessionResponse {
-  success: Boolean!
-  totalCount: Int!
-  currentPage: Int!
-  totalPages: Int!
-  data: [AstrologerSessionItem!]!
-}
+  type AstrologerSessionResponse {
+    success: Boolean!
+    totalCount: Int!
+    currentPage: Int!
+    totalPages: Int!
+    data: [AstrologerSessionItem!]!
+  }
 
-#--END code for getAstrologerSessions----------------------
+  #--END code for getAstrologerSessions----------------------
   #--END code for getAstrologerSessions----------------------
 
   #-----------START code for get Offer--
   type Offer {
-  id: ID!
-  offerName: String!
-  price: Float!
-  description: String
-  isActive: Boolean!     # admin status
-  selected: Boolean!     # astrologer status
-  createdAt: String!
-  updatedAt: String!
-}
+    id: ID!
+    offerName: String!
+    price: Float!
+    description: String
+    isActive: Boolean! # admin status
+    selected: Boolean! # astrologer status
+    createdAt: String!
+    updatedAt: String!
+  }
 
   type OfferResponse {
     success: Boolean!
@@ -622,304 +622,306 @@ type AstrologerSessionResponse {
   }
   #------END CODE FOR REMEDY----------
   #---------------start code for kundali generation----------------------
- type KundaliResponse {
-  status: Boolean
-  userId: String
-  requestType: String
-  requestSessionId: String
-  userName: String
-  data: String          # or remove the field temporarily
-}
+  type KundaliResponse {
+    status: Boolean
+    userId: String
+    requestType: String
+    requestSessionId: String
+    userName: String
+    data: String # or remove the field temporarily
+  }
 
   #---------------END code for kundali generation----------------------
- #-----------------start code for astrologer followers count-----------
- type FollowCountResponse {
-  totalFollowers: Int!
-}
+  #-----------------start code for astrologer followers count-----------
+  type FollowCountResponse {
+    totalFollowers: Int!
+  }
 
-type FollowerUser {
-  id: ID!
-  name: String
-  mobile: String
-  countryCode: String
-}
+  type FollowerUser {
+    id: ID!
+    name: String
+    mobile: String
+    countryCode: String
+  }
 
-type AstrologerFollower {
-  id: ID!
-  userId: String!
-  astrologerId: String!
-  createdAt: String!
-  user: FollowerUser
-}
+  type AstrologerFollower {
+    id: ID!
+    userId: String!
+    astrologerId: String!
+    createdAt: String!
+    user: FollowerUser
+  }
 
-type AstrologerFollowersResponse {
-  followers: [AstrologerFollower!]!
-  total: Int!
-  page: Int!
-  limit: Int!
-  totalPages: Int!
-}
- #----END code for astrologer followers count-----
- #--------START Booked services----------
- 
-type Service {
-  id: ID!
-  name: String!
-  price: Float!
-}
+  type AstrologerFollowersResponse {
+    followers: [AstrologerFollower!]!
+    total: Int!
+    page: Int!
+    limit: Int!
+    totalPages: Int!
+  }
+  #----END code for astrologer followers count-----
+  #--------START Booked services----------
 
-type ServiceBookingListResponse {
-  success: Boolean!
-  total: Int!
-  currentPage: Int!
-  totalPages: Int!
-  limit: Int!
-  data: [ServiceBooking!]!
-}
+  type Service {
+    id: ID!
+    name: String!
+    price: Float!
+  }
 
-enum PaymentStatus {
-  PENDING
-  SUCCESS
-  FAILED
-}
+  type ServiceBookingListResponse {
+    success: Boolean!
+    total: Int!
+    currentPage: Int!
+    totalPages: Int!
+    limit: Int!
+    data: [ServiceBooking!]!
+  }
 
-enum BookingStatus {
-  PENDING
-  ASSIGNED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
+  enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+  }
 
-type ServiceBooking {
-  id: ID!
+  enum BookingStatus {
+    PENDING
+    ASSIGNED
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+  }
 
-  userId: String!
-  serviceId: String!
-  astrologerId: String
+  type ServiceBooking {
+    id: ID!
 
-  name: String!
+    userId: String!
+    serviceId: String!
+    astrologerId: String
 
-  dob: String!
-  tob: String!
-  pob: String!
+    name: String!
 
-  gender: String
-  concern: String
+    dob: String!
+    tob: String!
+    pob: String!
 
-  amount: Float!
+    gender: String
+    concern: String
 
-  paymentStatus: PaymentStatus!
-  bookingStatus: BookingStatus!
+    amount: Float!
 
-  createdAt: String!
-  updatedAt: String!
+    paymentStatus: PaymentStatus!
+    bookingStatus: BookingStatus!
 
-  service: Service
-}
- #--------End Booked services------------
- #-----------Start code for change service----
- enum AstrologerServiceType {
-  CHAT
-  CALL
-  LIVE
-  PROMOTIONAL
-}
+    createdAt: String!
+    updatedAt: String!
 
+    service: Service
+  }
+  #--------End Booked services------------
+  #-----------Start code for change service----
+  enum AstrologerServiceType {
+    CHAT
+    CALL
+    LIVE
+    PROMOTIONAL
+  }
 
+  type CommonResponse {
+    success: Boolean!
+    message: String!
+  }
 
- type CommonResponse {
+  type MonthlyAnalytics {
+    month: String!
+    earnings: Float!
+    chats: Int!
+    calls: Int!
+  }
+
+  type AstrologerAnalytics {
+    totalEarnings: Float!
+    totalFollowers: Int!
+    totalChats: Int!
+    totalCalls: Int!
+    averageRating: Float!
+    monthlyData: [MonthlyAnalytics!]!
+  }
+  #----------End -----------
+  #-------start code for notice-----
+  type Notice {
+    id: String!
+    title: String!
+    description: String!
+    targetType: String!
+    isPinned: Boolean!
+    isActive: Boolean!
+    startDate: String
+    endDate: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  #---------End-----------
+
+  #---------START CODE FOR LIVE STREAMING---------------
+  enum AgoraRole {
+    HOST
+    AUDIENCE
+  }
+
+  enum LiveStatus {
+    SCHEDULED
+    LIVE
+    ENDED
+  }
+
+  type LiveAstrologer {
+    id: String!
+    name: String
+    displayName: String
+    profilePic: String
+    rating: Float
+  }
+
+  type LiveStream {
+    id: ID!
+    astrologerId: ID!
+    title: String!
+    channelName: String!
+
+    chatRoomId: String
+
+    status: LiveStatus!
+
+    scheduledAt: String
+    scheduledEndAt: String
+
+    createdAt: String!
+    updatedAt: String
+
+    startedAt: String
+    endedAt: String
+  }
+
+  type JoinLiveResponse {
+    appId: String!
+    channelName: String!
+    uid: Int!
+    rtcToken: String!
+
+    chatUserId: String!
+    chatToken: String!
+    chatRoomId: String!
+    chatAppKey: String!
+  }
+
+  #----------END CODE FOR LIVE STREAMING--------------
+
+  #-----------start-current chat messages that are running chat-------------
+  type ChatMessagesResponse {
+    success: Boolean!
+    totalCount: Int!
+    data: [ChatMessage!]!
+  }
+
+  type ChatMessage {
+    id: ID!
+    msgId: String
+    roomId: String
+    senderId: String
+    receiverId: String
+    message: String
+    image: String
+    sender: String
+    replyTo: String
+    createdAt: String
+  }
+  #-------END ------------------------------------------------
+  #----------start get remedy for chat-----------
+
+  type GetRemediesResponse {
+    success: Boolean!
+    message: String!
+    data: [Remedy!]!
+  }
+
+  #----------End get remedy for chat-------------
+
+  #-----------START CODE FOR GET APP VERSION---
+
+  type AppVersionData {
+    id: ID!
+    appType: String!
+    platform: String!
+    latestVersion: String!
+    minimumVersion: String!
+    forceUpdate: Boolean!
+    maintenanceMode: Boolean!
+    maintenanceMessage: String
+    playStoreUrl: String
+    appStoreUrl: String
+    releaseNotes: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type GetAstrologerAppVersionResponse {
+    success: Boolean!
+    message: String!
+    data: AppVersionData
+  }
+  #----------END CODE FOR APP VERSION----
+
+  #---------------START UPLOAD FILE--------
+
+  type UploadFileResponse {
+    success: Boolean!
+    message: String!
+    url: String!
+    filename: String!
+  }
+  #--------------END UPLOAD FILE-----------
+
+  #---------START CODE FOR CURRENT ASTROLOGER-----
+  type CurrentAstrologer {
+    id: ID!
+    name: String
+    contactNo: String
+  }
+  #---------END CODE FOR CURRENT ASTROLOGER-------
+
+  #-------------------ASTROLOGER PAYOUT SUMMARY------------
+  type AstrologerPayoutSummary {
+    totalPayouts: Int!
+    totalRevenue: Float!
+    totalCommission: Float!
+    totalEarning: Float!
+    totalPgCharge: Float!
+    totalPgTotal: Float!
+    totalGrossAmount: Float!
+    totalTdsAmount: Float!
+    totalLastPaidAmount: Float!
+    totalPayableAmount: Float!
+    totalIGST: Float!
+    totalCGST: Float!
+    totalSGST: Float!
+    averageCommissionPercent: Float!
+    averagePgChargeRate: Float!
+    averageGstRate: Float!
+    averageTdsPercent: Float!
+  }
+  type AstrologerPayoutSummaryResponse {
+    success: Boolean!
+    message: String!
+    astrologer: Astrologer
+    summary: AstrologerPayoutSummary!
+  }
+  #--------------------END -----------
+
+  type ToggleServiceResponse {
   success: Boolean!
   message: String!
 }
-
-type MonthlyAnalytics {
-  month: String!
-  earnings: Float!
-  chats: Int!
-  calls: Int!
-}
-
-type AstrologerAnalytics {
-  totalEarnings: Float!
-  totalFollowers: Int!
-  totalChats: Int!
-  totalCalls: Int!
-  averageRating: Float!
-  monthlyData: [MonthlyAnalytics!]!
-}
- #----------End -----------
- #-------start code for notice-----
- type Notice {
-  id: String!
-  title: String!
-  description: String!
-  targetType: String!
-  isPinned: Boolean!
-  isActive: Boolean!
-  startDate: String
-  endDate: String
-  createdAt: String!
-  updatedAt: String!
-}
-
- #---------End-----------
-
- #---------START CODE FOR LIVE STREAMING---------------
-enum AgoraRole {
-  HOST
-  AUDIENCE
-}
-
-enum LiveStatus {
-  SCHEDULED
-  LIVE
-  ENDED
-}
-
-type LiveAstrologer {
-  id: String!
-  name: String
-  displayName: String
-  profilePic: String
-  rating: Float
-}
-
-type LiveStream {
-  id: ID!
-  astrologerId: ID!
-  title: String!
-  channelName: String!
-
-  chatRoomId: String
-
-  status: LiveStatus!
-
-  scheduledAt: String
-  scheduledEndAt: String
-
-  createdAt: String!
-  updatedAt: String
-
-  startedAt: String
-  endedAt: String
-}
-
-type JoinLiveResponse {
-  appId: String!
-  channelName: String!
-  uid: Int!
-  rtcToken: String!
-
-  chatUserId: String!
-  chatToken: String!
-  chatRoomId: String!
-  chatAppKey: String!
-}
-  
-#----------END CODE FOR LIVE STREAMING--------------
-
-#-----------start-current chat messages that are running chat-------------
-type ChatMessagesResponse {
-  success: Boolean!
-  totalCount: Int!
-  data: [ChatMessage!]!
-}
-
-type ChatMessage {
-  id: ID!
-  msgId: String
-  roomId: String
-  senderId: String
-  receiverId: String
-  message: String
-  image: String
-  sender: String
-  replyTo: String
-  createdAt: String
-}
-#-------END ------------------------------------------------
-#----------start get remedy for chat-----------
-
-
-type GetRemediesResponse {
-  success: Boolean!
-  message: String!
-  data: [Remedy!]!
-}
-
-#----------End get remedy for chat-------------
-
-#-----------START CODE FOR GET APP VERSION---
-
-type AppVersionData {
-  id: ID!
-  appType: String!
-  platform: String!
-  latestVersion: String!
-  minimumVersion: String!
-  forceUpdate: Boolean!
-  maintenanceMode: Boolean!
-  maintenanceMessage: String
-  playStoreUrl: String
-  appStoreUrl: String
-  releaseNotes: String
-  createdAt: String!
-  updatedAt: String!
-}
-
-type GetAstrologerAppVersionResponse {
-  success: Boolean!
-  message: String!
-  data: AppVersionData
-}
-#----------END CODE FOR APP VERSION----
-
-#---------------START UPLOAD FILE--------
-
-type UploadFileResponse {
-  success: Boolean!
-  message: String!
-  url: String!
-  filename: String!
-}
-#--------------END UPLOAD FILE-----------
-
-#---------START CODE FOR CURRENT ASTROLOGER-----
-type CurrentAstrologer {
-  id: ID!
-  name: String
-  contactNo: String
-}
-#---------END CODE FOR CURRENT ASTROLOGER-------
-
-#-------------------ASTROLOGER PAYOUT SUMMARY------------
-type AstrologerPayoutSummary {
-  totalPayouts: Int!
-  totalRevenue: Float!
-  totalCommission: Float!
-  totalEarning: Float!
-  totalPgCharge: Float!
-  totalPgTotal: Float!
-  totalGrossAmount: Float!
-  totalTdsAmount: Float!
-  totalLastPaidAmount: Float!
-  totalPayableAmount: Float!
-  totalIGST: Float!
-  totalCGST: Float!
-  totalSGST: Float!
-  averageCommissionPercent: Float!
-  averagePgChargeRate: Float!
-  averageGstRate: Float!
-  averageTdsPercent: Float!
-}
-type AstrologerPayoutSummaryResponse {
-  success: Boolean!
-  message: String!
-  astrologer: Astrologer
-  summary: AstrologerPayoutSummary!
-}
-#--------------------END -----------
 
   type Query {
     meAstrologer: Astrologer
@@ -956,48 +958,40 @@ type AstrologerPayoutSummaryResponse {
     getSessionRemedies(filter: SessionRemedyFilterInput): SessionRemedyResponse!
 
     getKundali(requestSessionId: String!): KundaliResponse
-    getAstrologerFollowersCount(
-  astrologerId: ID!
-): FollowCountResponse!
+    getAstrologerFollowersCount(astrologerId: ID!): FollowCountResponse!
 
-getAstrologerFollowers(
-    astrologerId: String!
-    page: Int
-    limit: Int
-  ): AstrologerFollowersResponse!
+    getAstrologerFollowers(
+      astrologerId: String!
+      page: Int
+      limit: Int
+    ): AstrologerFollowersResponse!
 
-   getAstrologerAssignedBookedServices(
-    page: Int
-    limit: Int
-    bookingStatus: BookingStatus
-    paymentStatus: PaymentStatus
-  ): ServiceBookingListResponse!
+    getAstrologerAssignedBookedServices(
+      page: Int
+      limit: Int
+      bookingStatus: BookingStatus
+      paymentStatus: PaymentStatus
+    ): ServiceBookingListResponse!
 
-  getAstrologerById(astrologerId: String!): Astrologer
+    getAstrologerById(astrologerId: String!): Astrologer
 
-  getAstrologerAnalytics(astrologerId: String!): AstrologerAnalytics!
-   getAstrologerNotices: [Notice!]!
+    getAstrologerAnalytics(astrologerId: String!): AstrologerAnalytics!
+    getAstrologerNotices: [Notice!]!
 
-  getLiveStreams: [LiveStream!]!
+    getLiveStreams: [LiveStream!]!
 
-  joinLive(
-    channelName: String!
-    role: String!
-  ): JoinLiveResponse!
+    joinLive(channelName: String!, role: String!): JoinLiveResponse!
 
-  getMyScheduledLives: [LiveStream!]!
-  
+    getMyScheduledLives: [LiveStream!]!
 
-  getCurrentChatMessages(roomId: String!): ChatMessagesResponse!
-   
-  getRemediesForChat: GetRemediesResponse!
+    getCurrentChatMessages(roomId: String!): ChatMessagesResponse!
 
-  getAstrologerAppVersion(platform: String!): GetAstrologerAppVersionResponse!
+    getRemediesForChat: GetRemediesResponse!
 
-  getCurrentAstrologer: CurrentAstrologer!
-  getAstrologerPayoutSummary: AstrologerPayoutSummaryResponse!
-  
-  
+    getAstrologerAppVersion(platform: String!): GetAstrologerAppVersionResponse!
+
+    getCurrentAstrologer: CurrentAstrologer!
+    getAstrologerPayoutSummary: AstrologerPayoutSummaryResponse!
   }
 
   type Mutation {
@@ -1021,37 +1015,39 @@ getAstrologerFollowers(
     sendRemedy(sessionId: String!, remedyText: String!): MessageResponse!
 
     toggleAstrologerService(
-    astrologerId: String!
-    serviceType: AstrologerServiceType!
-    status: Boolean!
-  ): CommonResponse!
-  #---------START CODE FOR LIVE STREAMING---------------
+      astrologerId: String!
+      serviceType: AstrologerServiceType!
+      status: Boolean!
+    ): CommonResponse!
+    #---------START CODE FOR LIVE STREAMING---------------
 
-  startLive(
-    title: String!
-  ): LiveStream!
+    startLive(title: String!): LiveStream!
 
-  endLive(
-    streamId: String!
-  ): Boolean!
+    endLive(streamId: String!): Boolean!
 
-  scheduleLive(
-    title: String!
-    scheduledAt: String!
-    scheduledEndAt: String!
-  ): LiveStream!
+    scheduleLive(
+      title: String!
+      scheduledAt: String!
+      scheduledEndAt: String!
+    ): LiveStream!
 
-  updateScheduledLive(
-    id: ID!
-    title: String!
-    scheduledAt: String!
-    scheduledEndAt: String!
-  ): LiveStream!
+    updateScheduledLive(
+      id: ID!
+      title: String!
+      scheduledAt: String!
+      scheduledEndAt: String!
+    ): LiveStream!
 
-  deleteScheduledLive(id: ID!): Boolean!
-  
-  #----------END CODE FOR LIVE STREAMING--------------
+    deleteScheduledLive(id: ID!): Boolean!
 
-  uploadFile(file: Upload!): UploadFileResponse!
+    #----------END CODE FOR LIVE STREAMING--------------
+
+    uploadFile(file: Upload!): UploadFileResponse!
+
+    startLiveToggleServices(
+      astrologerId: ID!
+      serviceType: String!
+      status: Boolean!
+    ): ToggleServiceResponse!
   }
 `;
