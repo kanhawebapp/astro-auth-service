@@ -2673,6 +2673,10 @@ export default {
         updateData.isChatActive = false;
         updateData.isCallActive = false;
       }
+      if (serviceType === "LIVE" && status === false) {
+        updateData.isChatActive = true;
+        updateData.isCallActive = true;
+      }
 
       await prisma.astrologer.update({
         where: {
