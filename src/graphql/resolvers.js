@@ -2704,7 +2704,7 @@ export default {
           throw new Error("Live title is required");
         }
 
-        // Fetch the authenticated astrologer's details.
+        // 1. Fetch astrologer details
         const astrologer = await prisma.astrologer.findUnique({
           where: {
             id: user.id,
@@ -2720,11 +2720,12 @@ export default {
           throw new Error("Astrologer not found");
         }
 
-        // Prevent an astrologer from starting multiple live streams.
+        // 2. Prevent multiple active live streams
         const existingLive = await prisma.liveStream.findFirst({
           where: {
             astrologerId: user.id,
             status: "LIVE",
+            isDeleted: false,
           },
         });
 
@@ -2732,29 +2733,49 @@ export default {
           throw new Error("You already have an active live stream");
         }
 
-        // Reuse the astrologer's next scheduled stream, if available.
+        // 3. Find the next scheduled stream
         const scheduledStream = await prisma.liveStream.findFirst({
           where: {
             astrologerId: user.id,
             status: "SCHEDULED",
+            isDeleted: false,
           },
           orderBy: {
             scheduledAt: "asc",
           },
         });
 
+        // 4. Validate scheduled start date and time
+        if (scheduledStream?.scheduledAt) {
+          const scheduledDate = new Date(scheduledStream.scheduledAt);
+          const currentDate = new Date();
+
+          if (currentDate < scheduledDate) {
+            throw new Error(
+              `You cannot start the live stream before its scheduled time. Your live session is scheduled for ${scheduledDate.toLocaleString(
+                "en-IN",
+                {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                  timeZone: "Asia/Kolkata",
+                },
+              )}.`,
+            );
+          }
+        }
+
         const streamTitle = scheduledStream?.title || title.trim();
 
-        // This must be the same username used by joinLive.
+        // This must be the same username used by joinLive
         const chatUsername = `astro_${astrologer.id}`;
 
-        // STEP 1: Ensure the astrologer exists in Agora Chat.
+        // 5. Ensure astrologer exists in Agora Chat
         await registerAgoraChatUser({
           username: chatUsername,
           nickname: astrologer.displayName || astrologer.name || chatUsername,
         });
 
-        // STEP 2: Reuse the room if this scheduled stream already has one.
+        // 6. Reuse existing chat room if available
         let chatRoomId = scheduledStream?.chatRoomId || null;
 
         if (!chatRoomId) {
@@ -2769,12 +2790,11 @@ export default {
 
           if (!chatRoomId) {
             console.error("Agora Chat room response did not contain a room ID");
-
             throw new Error("Agora Chat room creation failed");
           }
         }
 
-        // STEP 3: Start the scheduled stream or create a new one.
+        // 7. Start scheduled stream
         if (scheduledStream) {
           return await prisma.liveStream.update({
             where: {
@@ -2788,6 +2808,7 @@ export default {
           });
         }
 
+        // 8. Create a new live stream if no scheduled stream exists
         return await prisma.liveStream.create({
           data: {
             astrologerId: astrologer.id,
