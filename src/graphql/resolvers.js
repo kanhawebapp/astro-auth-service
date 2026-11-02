@@ -2745,21 +2745,45 @@ export default {
           },
         });
 
-        // 4. Validate scheduled start date and time
         if (scheduledStream?.scheduledAt) {
-          const scheduledDate = new Date(scheduledStream.scheduledAt);
-          const currentDate = new Date();
+          const scheduledTimestamp = scheduledStream.scheduledAt.getTime();
+          const currentTimestamp = Date.now();
 
-          if (currentDate < scheduledDate) {
+          console.log("Scheduled date from DB:", scheduledStream.scheduledAt);
+          console.log(
+            "Scheduled date ISO:",
+            scheduledStream.scheduledAt.toISOString(),
+          );
+          console.log(
+            "Scheduled date IST:",
+            scheduledStream.scheduledAt.toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            }),
+          );
+          console.log("Current date ISO:", new Date().toISOString());
+          console.log(
+            "Current date IST:",
+            new Date().toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            }),
+          );
+          console.log(
+            "Difference in minutes:",
+            (scheduledTimestamp - currentTimestamp) / 60000,
+          );
+
+          if (currentTimestamp < scheduledTimestamp) {
+            const scheduledIST = scheduledStream.scheduledAt.toLocaleString(
+              "en-IN",
+              {
+                timeZone: "Asia/Kolkata",
+                dateStyle: "medium",
+                timeStyle: "short",
+              },
+            );
+
             throw new Error(
-              `You cannot start the live stream before its scheduled time. Your live session is scheduled for ${scheduledDate.toLocaleString(
-                "en-IN",
-                {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                  timeZone: "Asia/Kolkata",
-                },
-              )}.`,
+              `You cannot start the live stream before its scheduled time: ${scheduledIST}`,
             );
           }
         }
