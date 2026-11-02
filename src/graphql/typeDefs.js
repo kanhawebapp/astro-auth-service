@@ -122,7 +122,7 @@ export default gql`
     id: ID!
     type: String!
     amount: Float
-    coins: Int
+    coins: Float
     description: String
     createdAt: String
     sessionId: String
@@ -286,7 +286,7 @@ export default gql`
 
     amount: Float
 
-    coins: Int
+    coins: Float
 
     description: String
     sessionId: String
@@ -443,8 +443,8 @@ export default gql`
   }
   type AstrologerWalletInfo {
     balanceCoins: Float
-    totalEarned: Int
-    totalWithdrawn: Int
+    totalEarned: Float
+    totalWithdrawn: Float
   }
 
   type AstrologerProfileResponse {
