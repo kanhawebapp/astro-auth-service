@@ -923,11 +923,7 @@ export default gql`
   message: String!
 }
   #----start code for get remedy for previous sesion with same user-------
-  type GetSessionRemedy {
-  id: ID!
-  sessionId: String!
-  remedyText: String!
-  createdAt: DateTime!
+ extend type SessionRemedy {
   session: Session
 }
 
@@ -1003,7 +999,7 @@ export default gql`
     getCurrentAstrologer: CurrentAstrologer!
     getAstrologerPayoutSummary: AstrologerPayoutSummaryResponse!
 
-    getPreviousRemedies(userId: ID!): [GetSessionRemedy!]!
+    getPreviousRemedies(userId: ID!): [SessionRemedy!]!
     
   }
 
