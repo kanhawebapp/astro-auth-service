@@ -923,9 +923,7 @@ export default gql`
   message: String!
 }
   #----start code for get remedy for previous sesion with same user-------
- extend type SessionRemedy {
-  session: Session
-}
+
 
   #---end code for get remedy for previous sesion with same user
 

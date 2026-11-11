@@ -2424,9 +2424,9 @@ export default {
       });
     },
 
-    getPreviousRemedies: async (_, { userId }, { user }) => {
+  getPreviousRemedies: async (_, { userId }, { user }) => {
   try {
-    // Authentication
+    // Authenticate astrologer
     if (!user) {
       throw new Error("Unauthorized");
     }
@@ -2435,24 +2435,14 @@ export default {
       throw new Error("User ID is required");
     }
 
-    // Authenticated astrologer ID
     const astrologerId = user.id;
 
-    // Fetch remedies from previous sessions
+    // Fetch previous remedies for this astrologer-user combination
     const remedies = await prisma.sessionRemedy.findMany({
       where: {
         session: {
           userId: userId,
           astrologerId: astrologerId,
-        },
-      },
-      include: {
-        session: {
-          select: {
-            id: true,
-            userId: true,
-            astrologerId: true,
-          },
         },
       },
       orderBy: {
@@ -2461,6 +2451,7 @@ export default {
     });
 
     return remedies;
+
   } catch (error) {
     console.error("getPreviousRemedies Error:", error);
 
