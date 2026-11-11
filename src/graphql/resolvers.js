@@ -2423,6 +2423,53 @@ export default {
         },
       });
     },
+
+    getPreviousRemedies: async (_, { userId }, { user }) => {
+  try {
+    // Authentication
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
+    // Authenticated astrologer ID
+    const astrologerId = user.id;
+
+    // Fetch remedies from previous sessions
+    const remedies = await prisma.sessionRemedy.findMany({
+      where: {
+        session: {
+          userId: userId,
+          astrologerId: astrologerId,
+        },
+      },
+      include: {
+        session: {
+          select: {
+            id: true,
+            userId: true,
+            astrologerId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return remedies;
+  } catch (error) {
+    console.error("getPreviousRemedies Error:", error);
+
+    throw new Error(
+      error.message || "Failed to fetch previous remedies"
+    );
+  }
+},
+
   },
 
   Mutation: {

@@ -922,6 +922,16 @@ export default gql`
   success: Boolean!
   message: String!
 }
+  #----start code for get remedy for previous sesion with same user-------
+  type SessionRemedy {
+  id: ID!
+  sessionId: String!
+  remedyText: String!
+  createdAt: DateTime!
+  session: Session
+}
+
+  #---end code for get remedy for previous sesion with same user
 
   type Query {
     meAstrologer: Astrologer
@@ -992,6 +1002,9 @@ export default gql`
 
     getCurrentAstrologer: CurrentAstrologer!
     getAstrologerPayoutSummary: AstrologerPayoutSummaryResponse!
+
+    getPreviousRemedies(userId: ID!): [SessionRemedy!]!
+    
   }
 
   type Mutation {
