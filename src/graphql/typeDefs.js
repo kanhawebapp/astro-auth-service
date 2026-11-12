@@ -919,13 +919,42 @@ export default gql`
   #--------------------END -----------
 
   type ToggleServiceResponse {
-  success: Boolean!
-  message: String!
-}
-  #----start code for get remedy for previous sesion with same user-------
+    success: Boolean!
+    message: String!
+  }
 
+  # ================= LIVE INTERACTION =================
 
-  #---end code for get remedy for previous sesion with same user
+  enum LiveInteractionType {
+    AUDIO
+    VIDEO
+  }
+
+  enum LiveInteractionStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
+    ENDED
+  }
+
+  enum LiveInteractionAction {
+    ACCEPT
+    REJECT
+  }
+
+  type LiveInteractionRequest {
+    id: ID!
+    liveStreamId: ID!
+    userId: ID!
+    astrologerId: ID!
+    agoraUid: Int!
+    interactionType: LiveInteractionType!
+    status: LiveInteractionStatus!
+    requestedAt: String!
+    acceptedAt: String
+    endedAt: String
+  }
 
   type Query {
     meAstrologer: Astrologer
@@ -998,7 +1027,8 @@ export default gql`
     getAstrologerPayoutSummary: AstrologerPayoutSummaryResponse!
 
     getPreviousRemedies(userId: ID!): [SessionRemedy!]!
-    
+
+    getPendingLiveInteractions(liveStreamId: ID!): [LiveInteractionRequest!]!
   }
 
   type Mutation {
@@ -1056,5 +1086,10 @@ export default gql`
       serviceType: String!
       status: Boolean!
     ): ToggleServiceResponse!
+
+    respondLiveInteractionRequest(
+      requestId: ID!
+      action: LiveInteractionAction!
+    ): LiveInteractionRequest!
   }
 `;

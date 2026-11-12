@@ -2461,6 +2461,57 @@ export default {
   }
 },
 
+getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!liveStreamId) {
+      throw new Error("Live stream ID is required");
+    }
+
+    const astrologerId = user.id;
+
+    // Verify that the live stream belongs to this astrologer
+    const liveStream = await prisma.liveStream.findFirst({
+      where: {
+        id: liveStreamId,
+        astrologerId,
+        isDeleted: false,
+      },
+    });
+
+    if (!liveStream) {
+      throw new Error("Live stream not found or access denied");
+    }
+
+    if (liveStream.status !== "LIVE") {
+      return [];
+    }
+
+    // Fetch pending interaction requests
+    const requests = await prisma.liveInteractionRequest.findMany({
+      where: {
+        liveStreamId,
+        astrologerId,
+        status: "PENDING",
+      },
+      orderBy: {
+        requestedAt: "asc",
+      },
+    });
+
+    return requests;
+  } catch (error) {
+    console.error("getPendingLiveInteractions Error:", error);
+
+    throw new Error(
+      error.message || "Failed to fetch pending live interactions"
+    );
+  }
+},
+
   },
 
   Mutation: {
@@ -3142,5 +3193,98 @@ export default {
 
       return true;
     },
+
+    respondLiveInteractionRequest: async (
+  _,
+  { requestId, action },
+  { user }
+) => {
+  try {
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!requestId) {
+      throw new Error("Request ID is required");
+    }
+
+    if (!["ACCEPT", "REJECT"].includes(action)) {
+      throw new Error("Invalid action. Use ACCEPT or REJECT");
+    }
+
+    const astrologerId = user.id;
+
+    // Find interaction request
+    const request = await prisma.liveInteractionRequest.findUnique({
+      where: {
+        id: requestId,
+      },
+    });
+
+    if (!request) {
+      throw new Error("Interaction request not found");
+    }
+
+    // Verify astrologer ownership
+    if (request.astrologerId !== astrologerId) {
+      throw new Error("Access denied");
+    }
+
+    // Verify live stream is still active
+    const liveStream = await prisma.liveStream.findFirst({
+      where: {
+        id: request.liveStreamId,
+        astrologerId,
+        status: "LIVE",
+        isDeleted: false,
+      },
+    });
+
+    if (!liveStream) {
+      throw new Error("Live stream is not active");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new Error("This interaction request has already been processed");
+    }
+
+    const updateData = {
+      status: action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
+    };
+
+    if (action === "ACCEPT") {
+      updateData.acceptedAt = new Date();
+    }
+
+    // Atomic update to prevent duplicate accept/reject
+    const result = await prisma.liveInteractionRequest.updateMany({
+      where: {
+        id: requestId,
+        astrologerId,
+        status: "PENDING",
+      },
+      data: updateData,
+    });
+
+    if (result.count === 0) {
+      throw new Error("This request has already been processed");
+    }
+
+    // Return updated request
+    const updatedRequest = await prisma.liveInteractionRequest.findUnique({
+      where: {
+        id: requestId,
+      },
+    });
+
+    return updatedRequest;
+  } catch (error) {
+    console.error("respondLiveInteractionRequest Error:", error);
+
+    throw new Error(
+      error.message || "Failed to respond to live interaction request"
+    );
+  }
+},
   },
 };
