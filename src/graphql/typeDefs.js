@@ -954,6 +954,8 @@ export default gql`
     requestedAt: String!
     acceptedAt: String
     endedAt: String
+     createdAt: String!
+     updatedAt: String!
   }
 
   type Query {

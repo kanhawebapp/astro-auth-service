@@ -3194,13 +3194,12 @@ getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
       return true;
     },
 
-    respondLiveInteractionRequest: async (
-  _,
-  { requestId, action },
-  { user }
-) => {
+ respondLiveInteractionRequest: async (_, { requestId, action }, { user }) => {
   try {
-    if (!user) {
+    // =========================================
+    // 1. Authentication and input validation
+    // =========================================
+    if (!user?.id) {
       throw new Error("Unauthorized");
     }
 
@@ -3214,67 +3213,141 @@ getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
 
     const astrologerId = user.id;
 
-    // Find interaction request
-    const request = await prisma.liveInteractionRequest.findUnique({
-      where: {
-        id: requestId,
+    // =========================================
+    // 2. Perform operation inside transaction
+    // =========================================
+    const updatedRequest = await prisma.$transaction(
+      async (tx) => {
+        // Find interaction request
+        const request = await tx.liveInteractionRequest.findUnique({
+          where: {
+            id: requestId,
+          },
+        });
+
+        if (!request) {
+          throw new Error("Interaction request not found");
+        }
+
+        // Verify astrologer ownership
+        if (request.astrologerId !== astrologerId) {
+          throw new Error("Access denied");
+        }
+
+        // Verify request is still pending
+        if (request.status !== "PENDING") {
+          throw new Error(
+            "This interaction request has already been processed"
+          );
+        }
+
+        // =========================================
+        // 3. Verify live stream is active
+        // =========================================
+        const liveStream = await tx.liveStream.findFirst({
+          where: {
+            id: request.liveStreamId,
+            astrologerId,
+            status: "LIVE",
+            isDeleted: false,
+          },
+        });
+
+        if (!liveStream) {
+          throw new Error("Live stream is not active");
+        }
+
+        // =========================================
+        // 4. Validate viewer Agora UID
+        // =========================================
+        if (
+          !Number.isInteger(request.agoraUid) ||
+          request.agoraUid <= 0
+        ) {
+          throw new Error(
+            "Invalid viewer Agora UID. Please ask the viewer to rejoin the live stream."
+          );
+        }
+
+        // =========================================
+        // 5. Check existing active interaction
+        // =========================================
+        if (action === "ACCEPT") {
+          const existingInteraction =
+            await tx.liveInteractionRequest.findFirst({
+              where: {
+                liveStreamId: request.liveStreamId,
+                id: {
+                  not: request.id,
+                },
+                status: {
+                  in: ["PENDING", "ACCEPTED"],
+                },
+              },
+            });
+
+          if (existingInteraction) {
+            throw new Error(
+              "Another interaction request is already active for this live stream."
+            );
+          }
+        }
+
+        // =========================================
+        // 6. Atomic ACCEPT / REJECT update
+        // =========================================
+        const updateData =
+          action === "ACCEPT"
+            ? {
+                status: "ACCEPTED",
+                acceptedAt: new Date(),
+              }
+            : {
+                status: "REJECTED",
+              };
+
+        const result = await tx.liveInteractionRequest.updateMany({
+          where: {
+            id: requestId,
+            astrologerId,
+            status: "PENDING",
+          },
+          data: updateData,
+        });
+
+        if (result.count === 0) {
+          throw new Error(
+            "This interaction request has already been processed"
+          );
+        }
+
+        // =========================================
+        // 7. Return updated interaction
+        // =========================================
+        const finalRequest =
+          await tx.liveInteractionRequest.findUnique({
+            where: {
+              id: requestId,
+            },
+          });
+
+        if (!finalRequest) {
+          throw new Error("Unable to retrieve updated interaction");
+        }
+
+        return finalRequest;
       },
-    });
+      {
+        isolationLevel: "Serializable",
+      }
+    );
 
-    if (!request) {
-      throw new Error("Interaction request not found");
-    }
-
-    // Verify astrologer ownership
-    if (request.astrologerId !== astrologerId) {
-      throw new Error("Access denied");
-    }
-
-    // Verify live stream is still active
-    const liveStream = await prisma.liveStream.findFirst({
-      where: {
-        id: request.liveStreamId,
-        astrologerId,
-        status: "LIVE",
-        isDeleted: false,
-      },
-    });
-
-    if (!liveStream) {
-      throw new Error("Live stream is not active");
-    }
-
-    if (request.status !== "PENDING") {
-      throw new Error("This interaction request has already been processed");
-    }
-
-    const updateData = {
-      status: action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
-    };
-
-    if (action === "ACCEPT") {
-      updateData.acceptedAt = new Date();
-    }
-
-    // Atomic update to prevent duplicate accept/reject
-    const result = await prisma.liveInteractionRequest.updateMany({
-      where: {
-        id: requestId,
-        astrologerId,
-        status: "PENDING",
-      },
-      data: updateData,
-    });
-
-    if (result.count === 0) {
-      throw new Error("This request has already been processed");
-    }
-
-    // Return updated request
-    const updatedRequest = await prisma.liveInteractionRequest.findUnique({
-      where: {
-        id: requestId,
-      },
+    console.log("Live interaction response:", {
+      requestId: updatedRequest.id,
+      action,
+      status: updatedRequest.status,
+      interactionType: updatedRequest.interactionType,
+      agoraUid: updatedRequest.agoraUid,
     });
 
     return updatedRequest;
