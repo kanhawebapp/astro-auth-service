@@ -954,8 +954,51 @@ export default gql`
     requestedAt: String!
     acceptedAt: String
     endedAt: String
-     createdAt: String!
-     updatedAt: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+  input MyAstrologerLiveInteractionHistorySearchInput {
+    query: String
+    sessionId: String
+    userName: String
+    status: LiveInteractionStatus
+    interactionType: LiveInteractionType
+    filterType: String
+    startDate: String
+    endDate: String
+    page: Int
+    limit: Int
+  }
+
+  type MyAstrologerLiveInteractionHistoryItem {
+    sessionId: String!
+    liveStreamId: String!
+    userId: String!
+    userName: String!
+    astrologerId: String!
+    interactionType: LiveInteractionType!
+    status: LiveInteractionStatus!
+    ratePerMin: Float!
+    chargedCoins: Float!
+    astrologerEarned: Float!
+    durationSeconds: Int!
+    billableMinutes: Int!
+    requestedAt: String
+    acceptedAt: String
+    startedAt: String
+    endedAt: String
+    createdAt: String!
+  }
+
+  type MyAstrologerLiveInteractionHistoryResponse {
+    data: [MyAstrologerLiveInteractionHistoryItem!]!
+    totalCount: Int!
+    currentPage: Int!
+    totalPages: Int!
+    totalCoinsCollected: Float!
+    totalAstrologerEarnings: Float!
+    totalAudioCalls: Int!
+    totalVideoCalls: Int!
   }
 
   type Query {
@@ -1031,6 +1074,10 @@ export default gql`
     getPreviousRemedies(userId: ID!): [SessionRemedy!]!
 
     getPendingLiveInteractions(liveStreamId: ID!): [LiveInteractionRequest!]!
+
+    getMyLiveInteractionHistory(
+      searchInput: MyAstrologerLiveInteractionHistorySearchInput
+    ): MyAstrologerLiveInteractionHistoryResponse!
   }
 
   type Mutation {

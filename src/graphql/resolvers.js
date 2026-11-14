@@ -2512,6 +2512,356 @@ getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
   }
 },
 
+getMyLiveInteractionHistory: async (_, { searchInput = {} }, { user }) => {
+  try {
+    // =====================================================
+    // 1. Authentication
+    // =====================================================
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // Logged-in astrologer ID
+    const astrologerId = user.id;
+
+    // =====================================================
+    // 2. Search input
+    // =====================================================
+
+    const {
+      query,
+      sessionId,
+      userName,
+      status,
+      interactionType,
+      filterType,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 10,
+    } = searchInput;
+
+    // =====================================================
+    // 3. Pagination
+    // =====================================================
+
+    const safePage = Math.max(Number(page) || 1, 1);
+
+    const safeLimit = Math.min(
+      Math.max(Number(limit) || 10, 1),
+      100
+    );
+
+    const skip = (safePage - 1) * safeLimit;
+
+    // =====================================================
+    // 4. Base WHERE
+    // =====================================================
+
+    // Always fetch records belonging to the logged-in astrologer.
+    const where = {
+      astrologerId,
+    };
+
+    if (sessionId?.trim()) {
+      where.id = sessionId.trim();
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (interactionType) {
+      where.interactionType = interactionType;
+    }
+
+    // =====================================================
+    // 5. Search filters
+    // =====================================================
+
+    const searchFilters = [];
+
+    if (query?.trim()) {
+      const searchValue = query.trim();
+
+      searchFilters.push(
+        {
+          id: {
+            contains: searchValue,
+            mode: "insensitive",
+          },
+        },
+        {
+          user: {
+            name: {
+              contains: searchValue,
+              mode: "insensitive",
+            },
+          },
+        }
+      );
+    }
+
+    if (userName?.trim()) {
+      searchFilters.push({
+        user: {
+          name: {
+            contains: userName.trim(),
+            mode: "insensitive",
+          },
+        },
+      });
+    }
+
+    if (searchFilters.length > 0) {
+      where.AND = [
+        {
+          OR: searchFilters,
+        },
+      ];
+    }
+
+    // =====================================================
+    // 6. Date filters (IST)
+    // =====================================================
+
+    let start;
+    let end;
+
+    const now = new Date();
+
+    const istDate = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
+    );
+
+    const year = istDate.getFullYear();
+    const month = istDate.getMonth();
+    const day = istDate.getDate();
+
+    const todayStart = new Date(
+      `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}T00:00:00+05:30`
+    );
+
+    switch (filterType) {
+      case "TODAY": {
+        start = todayStart;
+
+        end = new Date(
+          todayStart.getTime() + 24 * 60 * 60 * 1000
+        );
+
+        break;
+      }
+
+      case "WEEK": {
+        start = new Date(todayStart);
+        start.setUTCDate(start.getUTCDate() - 6);
+
+        end = new Date(
+          todayStart.getTime() + 24 * 60 * 60 * 1000
+        );
+
+        break;
+      }
+
+      case "MONTH": {
+        start = new Date(todayStart);
+        start.setUTCMonth(start.getUTCMonth() - 1);
+
+        end = new Date(
+          todayStart.getTime() + 24 * 60 * 60 * 1000
+        );
+
+        break;
+      }
+
+      case "YEAR": {
+        start = new Date(todayStart);
+        start.setUTCFullYear(start.getUTCFullYear() - 1);
+
+        end = new Date(
+          todayStart.getTime() + 24 * 60 * 60 * 1000
+        );
+
+        break;
+      }
+
+      case "CUSTOM": {
+        if (startDate) {
+          start = new Date(
+            `${startDate}T00:00:00+05:30`
+          );
+        }
+
+        if (endDate) {
+          end = new Date(
+            new Date(
+              `${endDate}T00:00:00+05:30`
+            ).getTime() +
+              24 * 60 * 60 * 1000
+          );
+        }
+
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    if (start || end) {
+      where.createdAt = {};
+
+      if (start) {
+        where.createdAt.gte = start;
+      }
+
+      if (end) {
+        where.createdAt.lt = end;
+      }
+    }
+
+    // =====================================================
+    // 7. Fetch interaction history
+    // =====================================================
+
+    const [
+      requests,
+      totalCount,
+      aggregate,
+      audioCount,
+      videoCount,
+    ] = await Promise.all([
+      prisma.liveInteractionRequest.findMany({
+        where,
+
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        skip,
+        take: safeLimit,
+      }),
+
+      prisma.liveInteractionRequest.count({
+        where,
+      }),
+
+      prisma.liveInteractionRequest.aggregate({
+        where,
+
+        _sum: {
+          chargedCoins: true,
+          astrologerEarned: true,
+        },
+      }),
+
+      prisma.liveInteractionRequest.count({
+        where: {
+          ...where,
+          interactionType: "AUDIO",
+        },
+      }),
+
+      prisma.liveInteractionRequest.count({
+        where: {
+          ...where,
+          interactionType: "VIDEO",
+        },
+      }),
+    ]);
+
+    // =====================================================
+    // 8. Format response
+    // =====================================================
+
+    const formattedData = requests.map((item) => ({
+      sessionId: item.id,
+
+      liveStreamId: item.liveStreamId,
+
+      userId: item.userId,
+
+      userName: item.user?.name || "",
+
+      astrologerId: item.astrologerId,
+
+      interactionType: item.interactionType,
+
+      status: item.status,
+
+      ratePerMin: Number(item.ratePerMin || 0),
+
+      chargedCoins: Number(item.chargedCoins || 0),
+
+      astrologerEarned: Number(item.astrologerEarned || 0),
+
+      durationSeconds: item.durationSeconds || 0,
+
+      billableMinutes: item.billableMinutes || 0,
+
+      requestedAt: item.requestedAt?.toISOString() || null,
+
+      acceptedAt: item.acceptedAt?.toISOString() || null,
+
+      startedAt: item.startedAt?.toISOString() || null,
+
+      endedAt: item.endedAt?.toISOString() || null,
+
+      createdAt: item.createdAt.toISOString(),
+    }));
+
+    // =====================================================
+    // 9. Return response
+    // =====================================================
+
+    return {
+      data: formattedData,
+
+      totalCount,
+
+      currentPage: safePage,
+
+      totalPages: Math.ceil(totalCount / safeLimit),
+
+      totalCoinsCollected: Number(
+        aggregate?._sum?.chargedCoins || 0
+      ),
+
+      totalAstrologerEarnings: Number(
+        aggregate?._sum?.astrologerEarned || 0
+      ),
+
+      totalAudioCalls: audioCount,
+
+      totalVideoCalls: videoCount,
+    };
+  } catch (error) {
+    console.error(
+      "getMyLiveInteractionHistory error:",
+      error
+    );
+
+    throw new Error(
+      error.message || "Failed to fetch astrologer live interaction history"
+    );
+  }
+},
+
   },
 
   Mutation: {
