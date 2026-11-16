@@ -24,7 +24,7 @@ import {
   generateAgoraChatUserToken,
   registerAgoraChatUser,
 } from "../services/agoraChatService.js";
-import { sendScheduledLiveNotification } from "../services/sendNotification.js";
+import { sendScheduledLiveNotification } from "../services/sendLiveNotification.js";
 
 export default {
   //JSON: GraphQLJSON,
