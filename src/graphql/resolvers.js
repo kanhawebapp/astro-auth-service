@@ -24,6 +24,7 @@ import {
   generateAgoraChatUserToken,
   registerAgoraChatUser,
 } from "../services/agoraChatService.js";
+import { sendScheduledLiveNotification } from "../services/sendNotification.js";
 
 export default {
   //JSON: GraphQLJSON,
@@ -2424,444 +2425,417 @@ export default {
       });
     },
 
-  getPreviousRemedies: async (_, { userId }, { user }) => {
-  try {
-    // Authenticate astrologer
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+    getPreviousRemedies: async (_, { userId }, { user }) => {
+      try {
+        // Authenticate astrologer
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-    if (!userId) {
-      throw new Error("User ID is required");
-    }
+        if (!userId) {
+          throw new Error("User ID is required");
+        }
 
-    const astrologerId = user.id;
+        const astrologerId = user.id;
 
-    // Fetch previous remedies for this astrologer-user combination
-    const remedies = await prisma.sessionRemedy.findMany({
-      where: {
-        session: {
-          userId: userId,
-          astrologerId: astrologerId,
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return remedies;
-
-  } catch (error) {
-    console.error("getPreviousRemedies Error:", error);
-
-    throw new Error(
-      error.message || "Failed to fetch previous remedies"
-    );
-  }
-},
-
-getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
-  try {
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
-    if (!liveStreamId) {
-      throw new Error("Live stream ID is required");
-    }
-
-    const astrologerId = user.id;
-
-    // Verify that the live stream belongs to this astrologer
-    const liveStream = await prisma.liveStream.findFirst({
-      where: {
-        id: liveStreamId,
-        astrologerId,
-        isDeleted: false,
-      },
-    });
-
-    if (!liveStream) {
-      throw new Error("Live stream not found or access denied");
-    }
-
-    if (liveStream.status !== "LIVE") {
-      return [];
-    }
-
-    // Fetch pending interaction requests
-    const requests = await prisma.liveInteractionRequest.findMany({
-      where: {
-        liveStreamId,
-        astrologerId,
-        status: "PENDING",
-      },
-      orderBy: {
-        requestedAt: "asc",
-      },
-    });
-
-    return requests;
-  } catch (error) {
-    console.error("getPendingLiveInteractions Error:", error);
-
-    throw new Error(
-      error.message || "Failed to fetch pending live interactions"
-    );
-  }
-},
-
-getMyLiveInteractionHistory: async (_, { searchInput = {} }, { user }) => {
-  try {
-    // =====================================================
-    // 1. Authentication
-    // =====================================================
-
-    if (!user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    // Logged-in astrologer ID
-    const astrologerId = user.id;
-
-    // =====================================================
-    // 2. Search input
-    // =====================================================
-
-    const {
-      query,
-      sessionId,
-      userName,
-      status,
-      interactionType,
-      filterType,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 10,
-    } = searchInput;
-
-    // =====================================================
-    // 3. Pagination
-    // =====================================================
-
-    const safePage = Math.max(Number(page) || 1, 1);
-
-    const safeLimit = Math.min(
-      Math.max(Number(limit) || 10, 1),
-      100
-    );
-
-    const skip = (safePage - 1) * safeLimit;
-
-    // =====================================================
-    // 4. Base WHERE
-    // =====================================================
-
-    // Always fetch records belonging to the logged-in astrologer.
-    const where = {
-      astrologerId,
-    };
-
-    if (sessionId?.trim()) {
-      where.id = sessionId.trim();
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (interactionType) {
-      where.interactionType = interactionType;
-    }
-
-    // =====================================================
-    // 5. Search filters
-    // =====================================================
-
-    const searchFilters = [];
-
-    if (query?.trim()) {
-      const searchValue = query.trim();
-
-      searchFilters.push(
-        {
-          id: {
-            contains: searchValue,
-            mode: "insensitive",
-          },
-        },
-        {
-          user: {
-            name: {
-              contains: searchValue,
-              mode: "insensitive",
+        // Fetch previous remedies for this astrologer-user combination
+        const remedies = await prisma.sessionRemedy.findMany({
+          where: {
+            session: {
+              userId: userId,
+              astrologerId: astrologerId,
             },
           },
-        }
-      );
-    }
-
-    if (userName?.trim()) {
-      searchFilters.push({
-        user: {
-          name: {
-            contains: userName.trim(),
-            mode: "insensitive",
+          orderBy: {
+            createdAt: "desc",
           },
-        },
-      });
-    }
+        });
 
-    if (searchFilters.length > 0) {
-      where.AND = [
-        {
-          OR: searchFilters,
-        },
-      ];
-    }
+        return remedies;
+      } catch (error) {
+        console.error("getPreviousRemedies Error:", error);
 
-    // =====================================================
-    // 6. Date filters (IST)
-    // =====================================================
-
-    let start;
-    let end;
-
-    const now = new Date();
-
-    const istDate = new Date(
-      now.toLocaleString("en-US", {
-        timeZone: "Asia/Kolkata",
-      })
-    );
-
-    const year = istDate.getFullYear();
-    const month = istDate.getMonth();
-    const day = istDate.getDate();
-
-    const todayStart = new Date(
-      `${year}-${String(month + 1).padStart(2, "0")}-${String(
-        day
-      ).padStart(2, "0")}T00:00:00+05:30`
-    );
-
-    switch (filterType) {
-      case "TODAY": {
-        start = todayStart;
-
-        end = new Date(
-          todayStart.getTime() + 24 * 60 * 60 * 1000
-        );
-
-        break;
+        throw new Error(error.message || "Failed to fetch previous remedies");
       }
+    },
 
-      case "WEEK": {
-        start = new Date(todayStart);
-        start.setUTCDate(start.getUTCDate() - 6);
+    getPendingLiveInteractions: async (_, { liveStreamId }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error("Unauthorized");
+        }
 
-        end = new Date(
-          todayStart.getTime() + 24 * 60 * 60 * 1000
+        if (!liveStreamId) {
+          throw new Error("Live stream ID is required");
+        }
+
+        const astrologerId = user.id;
+
+        // Verify that the live stream belongs to this astrologer
+        const liveStream = await prisma.liveStream.findFirst({
+          where: {
+            id: liveStreamId,
+            astrologerId,
+            isDeleted: false,
+          },
+        });
+
+        if (!liveStream) {
+          throw new Error("Live stream not found or access denied");
+        }
+
+        if (liveStream.status !== "LIVE") {
+          return [];
+        }
+
+        // Fetch pending interaction requests
+        const requests = await prisma.liveInteractionRequest.findMany({
+          where: {
+            liveStreamId,
+            astrologerId,
+            status: "PENDING",
+          },
+          orderBy: {
+            requestedAt: "asc",
+          },
+        });
+
+        return requests;
+      } catch (error) {
+        console.error("getPendingLiveInteractions Error:", error);
+
+        throw new Error(
+          error.message || "Failed to fetch pending live interactions",
         );
-
-        break;
       }
+    },
 
-      case "MONTH": {
-        start = new Date(todayStart);
-        start.setUTCMonth(start.getUTCMonth() - 1);
+    getMyLiveInteractionHistory: async (_, { searchInput = {} }, { user }) => {
+      try {
+        // =====================================================
+        // 1. Authentication
+        // =====================================================
 
-        end = new Date(
-          todayStart.getTime() + 24 * 60 * 60 * 1000
-        );
+        if (!user?.id) {
+          throw new Error("Unauthorized");
+        }
 
-        break;
-      }
+        // Logged-in astrologer ID
+        const astrologerId = user.id;
 
-      case "YEAR": {
-        start = new Date(todayStart);
-        start.setUTCFullYear(start.getUTCFullYear() - 1);
+        // =====================================================
+        // 2. Search input
+        // =====================================================
 
-        end = new Date(
-          todayStart.getTime() + 24 * 60 * 60 * 1000
-        );
+        const {
+          query,
+          sessionId,
+          userName,
+          status,
+          interactionType,
+          filterType,
+          startDate,
+          endDate,
+          page = 1,
+          limit = 10,
+        } = searchInput;
 
-        break;
-      }
+        // =====================================================
+        // 3. Pagination
+        // =====================================================
 
-      case "CUSTOM": {
-        if (startDate) {
-          start = new Date(
-            `${startDate}T00:00:00+05:30`
+        const safePage = Math.max(Number(page) || 1, 1);
+
+        const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+
+        const skip = (safePage - 1) * safeLimit;
+
+        // =====================================================
+        // 4. Base WHERE
+        // =====================================================
+
+        // Always fetch records belonging to the logged-in astrologer.
+        const where = {
+          astrologerId,
+        };
+
+        if (sessionId?.trim()) {
+          where.id = sessionId.trim();
+        }
+
+        if (status) {
+          where.status = status;
+        }
+
+        if (interactionType) {
+          where.interactionType = interactionType;
+        }
+
+        // =====================================================
+        // 5. Search filters
+        // =====================================================
+
+        const searchFilters = [];
+
+        if (query?.trim()) {
+          const searchValue = query.trim();
+
+          searchFilters.push(
+            {
+              id: {
+                contains: searchValue,
+                mode: "insensitive",
+              },
+            },
+            {
+              user: {
+                name: {
+                  contains: searchValue,
+                  mode: "insensitive",
+                },
+              },
+            },
           );
         }
 
-        if (endDate) {
-          end = new Date(
-            new Date(
-              `${endDate}T00:00:00+05:30`
-            ).getTime() +
-              24 * 60 * 60 * 1000
-          );
+        if (userName?.trim()) {
+          searchFilters.push({
+            user: {
+              name: {
+                contains: userName.trim(),
+                mode: "insensitive",
+              },
+            },
+          });
         }
 
-        break;
-      }
-
-      default:
-        break;
-    }
-
-    if (start || end) {
-      where.createdAt = {};
-
-      if (start) {
-        where.createdAt.gte = start;
-      }
-
-      if (end) {
-        where.createdAt.lt = end;
-      }
-    }
-
-    // =====================================================
-    // 7. Fetch interaction history
-    // =====================================================
-
-    const [
-      requests,
-      totalCount,
-      aggregate,
-      audioCount,
-      videoCount,
-    ] = await Promise.all([
-      prisma.liveInteractionRequest.findMany({
-        where,
-
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
+        if (searchFilters.length > 0) {
+          where.AND = [
+            {
+              OR: searchFilters,
             },
-          },
-        },
+          ];
+        }
 
-        orderBy: {
-          createdAt: "desc",
-        },
+        // =====================================================
+        // 6. Date filters (IST)
+        // =====================================================
 
-        skip,
-        take: safeLimit,
-      }),
+        let start;
+        let end;
 
-      prisma.liveInteractionRequest.count({
-        where,
-      }),
+        const now = new Date();
 
-      prisma.liveInteractionRequest.aggregate({
-        where,
+        const istDate = new Date(
+          now.toLocaleString("en-US", {
+            timeZone: "Asia/Kolkata",
+          }),
+        );
 
-        _sum: {
-          chargedCoins: true,
-          astrologerEarned: true,
-        },
-      }),
+        const year = istDate.getFullYear();
+        const month = istDate.getMonth();
+        const day = istDate.getDate();
 
-      prisma.liveInteractionRequest.count({
-        where: {
-          ...where,
-          interactionType: "AUDIO",
-        },
-      }),
+        const todayStart = new Date(
+          `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(
+            2,
+            "0",
+          )}T00:00:00+05:30`,
+        );
 
-      prisma.liveInteractionRequest.count({
-        where: {
-          ...where,
-          interactionType: "VIDEO",
-        },
-      }),
-    ]);
+        switch (filterType) {
+          case "TODAY": {
+            start = todayStart;
 
-    // =====================================================
-    // 8. Format response
-    // =====================================================
+            end = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-    const formattedData = requests.map((item) => ({
-      sessionId: item.id,
+            break;
+          }
 
-      liveStreamId: item.liveStreamId,
+          case "WEEK": {
+            start = new Date(todayStart);
+            start.setUTCDate(start.getUTCDate() - 6);
 
-      userId: item.userId,
+            end = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-      userName: item.user?.name || "",
+            break;
+          }
 
-      astrologerId: item.astrologerId,
+          case "MONTH": {
+            start = new Date(todayStart);
+            start.setUTCMonth(start.getUTCMonth() - 1);
 
-      interactionType: item.interactionType,
+            end = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-      status: item.status,
+            break;
+          }
 
-      ratePerMin: Number(item.ratePerMin || 0),
+          case "YEAR": {
+            start = new Date(todayStart);
+            start.setUTCFullYear(start.getUTCFullYear() - 1);
 
-      chargedCoins: Number(item.chargedCoins || 0),
+            end = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-      astrologerEarned: Number(item.astrologerEarned || 0),
+            break;
+          }
 
-      durationSeconds: item.durationSeconds || 0,
+          case "CUSTOM": {
+            if (startDate) {
+              start = new Date(`${startDate}T00:00:00+05:30`);
+            }
 
-      billableMinutes: item.billableMinutes || 0,
+            if (endDate) {
+              end = new Date(
+                new Date(`${endDate}T00:00:00+05:30`).getTime() +
+                  24 * 60 * 60 * 1000,
+              );
+            }
 
-      requestedAt: item.requestedAt?.toISOString() || null,
+            break;
+          }
 
-      acceptedAt: item.acceptedAt?.toISOString() || null,
+          default:
+            break;
+        }
 
-      startedAt: item.startedAt?.toISOString() || null,
+        if (start || end) {
+          where.createdAt = {};
 
-      endedAt: item.endedAt?.toISOString() || null,
+          if (start) {
+            where.createdAt.gte = start;
+          }
 
-      createdAt: item.createdAt.toISOString(),
-    }));
+          if (end) {
+            where.createdAt.lt = end;
+          }
+        }
 
-    // =====================================================
-    // 9. Return response
-    // =====================================================
+        // =====================================================
+        // 7. Fetch interaction history
+        // =====================================================
 
-    return {
-      data: formattedData,
+        const [requests, totalCount, aggregate, audioCount, videoCount] =
+          await Promise.all([
+            prisma.liveInteractionRequest.findMany({
+              where,
 
-      totalCount,
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
 
-      currentPage: safePage,
+              orderBy: {
+                createdAt: "desc",
+              },
 
-      totalPages: Math.ceil(totalCount / safeLimit),
+              skip,
+              take: safeLimit,
+            }),
 
-      totalCoinsCollected: Number(
-        aggregate?._sum?.chargedCoins || 0
-      ),
+            prisma.liveInteractionRequest.count({
+              where,
+            }),
 
-      totalAstrologerEarnings: Number(
-        aggregate?._sum?.astrologerEarned || 0
-      ),
+            prisma.liveInteractionRequest.aggregate({
+              where,
 
-      totalAudioCalls: audioCount,
+              _sum: {
+                chargedCoins: true,
+                astrologerEarned: true,
+              },
+            }),
 
-      totalVideoCalls: videoCount,
-    };
-  } catch (error) {
-    console.error(
-      "getMyLiveInteractionHistory error:",
-      error
-    );
+            prisma.liveInteractionRequest.count({
+              where: {
+                ...where,
+                interactionType: "AUDIO",
+              },
+            }),
 
-    throw new Error(
-      error.message || "Failed to fetch astrologer live interaction history"
-    );
-  }
-},
+            prisma.liveInteractionRequest.count({
+              where: {
+                ...where,
+                interactionType: "VIDEO",
+              },
+            }),
+          ]);
 
+        // =====================================================
+        // 8. Format response
+        // =====================================================
+
+        const formattedData = requests.map((item) => ({
+          sessionId: item.id,
+
+          liveStreamId: item.liveStreamId,
+
+          userId: item.userId,
+
+          userName: item.user?.name || "",
+
+          astrologerId: item.astrologerId,
+
+          interactionType: item.interactionType,
+
+          status: item.status,
+
+          ratePerMin: Number(item.ratePerMin || 0),
+
+          chargedCoins: Number(item.chargedCoins || 0),
+
+          astrologerEarned: Number(item.astrologerEarned || 0),
+
+          durationSeconds: item.durationSeconds || 0,
+
+          billableMinutes: item.billableMinutes || 0,
+
+          requestedAt: item.requestedAt?.toISOString() || null,
+
+          acceptedAt: item.acceptedAt?.toISOString() || null,
+
+          startedAt: item.startedAt?.toISOString() || null,
+
+          endedAt: item.endedAt?.toISOString() || null,
+
+          createdAt: item.createdAt.toISOString(),
+        }));
+
+        // =====================================================
+        // 9. Return response
+        // =====================================================
+
+        return {
+          data: formattedData,
+
+          totalCount,
+
+          currentPage: safePage,
+
+          totalPages: Math.ceil(totalCount / safeLimit),
+
+          totalCoinsCollected: Number(aggregate?._sum?.chargedCoins || 0),
+
+          totalAstrologerEarnings: Number(
+            aggregate?._sum?.astrologerEarned || 0,
+          ),
+
+          totalAudioCalls: audioCount,
+
+          totalVideoCalls: videoCount,
+        };
+      } catch (error) {
+        console.error("getMyLiveInteractionHistory error:", error);
+
+        throw new Error(
+          error.message ||
+            "Failed to fetch astrologer live interaction history",
+        );
+      }
+    },
   },
 
   Mutation: {
@@ -3324,60 +3298,178 @@ getMyLiveInteractionHistory: async (_, { searchInput = {} }, { user }) => {
     },
 
     scheduleLive: async (
-      _,
-      { title, scheduledAt, scheduledEndAt },
-      { user },
-    ) => {
+  _,
+  { title, scheduledAt, scheduledEndAt },
+  { user },
+) => {
+  try {
+    // =============================================
+    // 1. Authentication
+    // =============================================
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    // =============================================
+    // 2. Validate input
+    // =============================================
+
+    if (!title?.trim()) {
+      throw new Error("Live title is required");
+    }
+
+    if (!scheduledAt || !scheduledEndAt) {
+      throw new Error(
+        "Scheduled start time and end time are required",
+      );
+    }
+
+    const scheduleDate = new Date(scheduledAt);
+    const scheduleEndDate = new Date(scheduledEndAt);
+
+    if (Number.isNaN(scheduleDate.getTime())) {
+      throw new Error("Invalid scheduled start date");
+    }
+
+    if (Number.isNaN(scheduleEndDate.getTime())) {
+      throw new Error("Invalid scheduled end date");
+    }
+
+    const now = new Date();
+
+    if (scheduleDate <= now) {
+      throw new Error("Scheduled start time must be in the future");
+    }
+
+    if (scheduleEndDate <= scheduleDate) {
+      throw new Error(
+        "Scheduled end time must be later than the start time",
+      );
+    }
+
+    // =============================================
+    // 3. Create scheduled live stream
+    // =============================================
+
+    const stream = await prisma.liveStream.create({
+      data: {
+        astrologerId: user.id,
+        title: title.trim(),
+        channelName: `astro-${user.id}-${Date.now()}`,
+        status: "SCHEDULED",
+        scheduledAt: scheduleDate,
+        scheduledEndAt: scheduleEndDate,
+      },
+    });
+
+    console.log(
+      `[Schedule Live] Live stream created: ${stream.id}`,
+    );
+
+    // =============================================
+    // 4. Send notifications asynchronously
+    // =============================================
+
+    void (async () => {
       try {
-        if (!user) {
-          throw new Error("Unauthorized");
-        }
+        // -----------------------------------------
+        // 4.1 Fetch astrologer details
+        // -----------------------------------------
 
-        if (!title?.trim()) {
-          throw new Error("Live title is required");
-        }
-
-        const scheduleDate = new Date(scheduledAt);
-        const scheduleEndDate = new Date(scheduledEndAt);
-
-        if (Number.isNaN(scheduleDate.getTime())) {
-          throw new Error("Invalid scheduled start date");
-        }
-
-        if (Number.isNaN(scheduleEndDate.getTime())) {
-          throw new Error("Invalid scheduled end date");
-        }
-
-        const now = new Date();
-
-        if (scheduleDate <= now) {
-          throw new Error("Scheduled start time must be in the future");
-        }
-
-        if (scheduleEndDate <= scheduleDate) {
-          throw new Error(
-            "Scheduled end time must be later than the start time",
-          );
-        }
-
-        const stream = await prisma.liveStream.create({
-          data: {
-            astrologerId: user.id,
-            title: title.trim(),
-            channelName: `astro-${user.id}-${Date.now()}`,
-            status: "SCHEDULED",
-            scheduledAt: scheduleDate,
-            scheduledEndAt: scheduleEndDate,
+        const astrologer = await prisma.astrologer.findUnique({
+          where: {
+            id: user.id,
+          },
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
           },
         });
 
-        return stream;
-      } catch (error) {
-        console.error("scheduleLive Error:", error);
+        if (!astrologer) {
+          console.error(
+            `[Schedule Live] Astrologer not found: ${user.id}`,
+          );
+          return;
+        }
 
-        throw new Error(error.message || "Failed to schedule live");
+        // -----------------------------------------
+        // 4.2 Fetch followers and their player IDs
+        // -----------------------------------------
+
+        const followers = await prisma.astrologerFollow.findMany({
+          where: {
+            astrologerId: user.id,
+          },
+          select: {
+            userId: true,
+
+            user: {
+              select: {
+                playerId: true,
+              },
+            },
+          },
+        });
+
+        console.log(
+          `[Schedule Live] Total followers found: ${followers.length}`,
+        );
+
+        if (followers.length === 0) {
+          console.log(
+            "[Schedule Live] No followers found. Notifications skipped.",
+          );
+          return;
+        }
+
+        // -----------------------------------------
+        // 4.3 Prepare follower notification data
+        // -----------------------------------------
+
+        const notificationFollowers = followers.map((follower) => ({
+          userId: follower.userId,
+          playerId: follower.user?.playerId || null,
+        }));
+
+        // -----------------------------------------
+        // 4.4 Send OneSignal notifications
+        // -----------------------------------------
+
+        const notificationResult =
+          await sendScheduledLiveNotification(
+            astrologer,
+            stream,
+            notificationFollowers,
+          );
+
+        console.log(
+          "[Schedule Live] Notification result:",
+          notificationResult,
+        );
+      } catch (notificationError) {
+        console.error(
+          "[Schedule Live] Failed to notify followers:",
+          notificationError,
+        );
       }
-    },
+    })();
+
+    // =============================================
+    // 5. Return scheduled live stream
+    // =============================================
+
+    return stream;
+  } catch (error) {
+    console.error("[Schedule Live] Error:", error);
+
+    throw new Error(
+      error.message || "Failed to schedule live",
+    );
+  }
+},
 
     uploadFile: async (_, { file }, { user }) => {
       try {
@@ -3544,170 +3636,170 @@ getMyLiveInteractionHistory: async (_, { searchInput = {} }, { user }) => {
       return true;
     },
 
- respondLiveInteractionRequest: async (_, { requestId, action }, { user }) => {
-  try {
-    // =========================================
-    // 1. Authentication and input validation
-    // =========================================
-    if (!user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    if (!requestId) {
-      throw new Error("Request ID is required");
-    }
-
-    if (!["ACCEPT", "REJECT"].includes(action)) {
-      throw new Error("Invalid action. Use ACCEPT or REJECT");
-    }
-
-    const astrologerId = user.id;
-
-    // =========================================
-    // 2. Perform operation inside transaction
-    // =========================================
-    const updatedRequest = await prisma.$transaction(
-      async (tx) => {
-        // Find interaction request
-        const request = await tx.liveInteractionRequest.findUnique({
-          where: {
-            id: requestId,
-          },
-        });
-
-        if (!request) {
-          throw new Error("Interaction request not found");
+    respondLiveInteractionRequest: async (
+      _,
+      { requestId, action },
+      { user },
+    ) => {
+      try {
+        // =========================================
+        // 1. Authentication and input validation
+        // =========================================
+        if (!user?.id) {
+          throw new Error("Unauthorized");
         }
 
-        // Verify astrologer ownership
-        if (request.astrologerId !== astrologerId) {
-          throw new Error("Access denied");
+        if (!requestId) {
+          throw new Error("Request ID is required");
         }
 
-        // Verify request is still pending
-        if (request.status !== "PENDING") {
-          throw new Error(
-            "This interaction request has already been processed"
-          );
+        if (!["ACCEPT", "REJECT"].includes(action)) {
+          throw new Error("Invalid action. Use ACCEPT or REJECT");
         }
 
-        // =========================================
-        // 3. Verify live stream is active
-        // =========================================
-        const liveStream = await tx.liveStream.findFirst({
-          where: {
-            id: request.liveStreamId,
-            astrologerId,
-            status: "LIVE",
-            isDeleted: false,
-          },
-        });
-
-        if (!liveStream) {
-          throw new Error("Live stream is not active");
-        }
+        const astrologerId = user.id;
 
         // =========================================
-        // 4. Validate viewer Agora UID
+        // 2. Perform operation inside transaction
         // =========================================
-        if (
-          !Number.isInteger(request.agoraUid) ||
-          request.agoraUid <= 0
-        ) {
-          throw new Error(
-            "Invalid viewer Agora UID. Please ask the viewer to rejoin the live stream."
-          );
-        }
-
-        // =========================================
-        // 5. Check existing active interaction
-        // =========================================
-        if (action === "ACCEPT") {
-          const existingInteraction =
-            await tx.liveInteractionRequest.findFirst({
+        const updatedRequest = await prisma.$transaction(
+          async (tx) => {
+            // Find interaction request
+            const request = await tx.liveInteractionRequest.findUnique({
               where: {
-                liveStreamId: request.liveStreamId,
-                id: {
-                  not: request.id,
-                },
-                status: {
-                  in: ["PENDING", "ACCEPTED"],
-                },
+                id: requestId,
               },
             });
 
-          if (existingInteraction) {
-            throw new Error(
-              "Another interaction request is already active for this live stream."
-            );
-          }
-        }
+            if (!request) {
+              throw new Error("Interaction request not found");
+            }
 
-        // =========================================
-        // 6. Atomic ACCEPT / REJECT update
-        // =========================================
-        const updateData =
-          action === "ACCEPT"
-            ? {
-                status: "ACCEPTED",
-                acceptedAt: new Date(),
+            // Verify astrologer ownership
+            if (request.astrologerId !== astrologerId) {
+              throw new Error("Access denied");
+            }
+
+            // Verify request is still pending
+            if (request.status !== "PENDING") {
+              throw new Error(
+                "This interaction request has already been processed",
+              );
+            }
+
+            // =========================================
+            // 3. Verify live stream is active
+            // =========================================
+            const liveStream = await tx.liveStream.findFirst({
+              where: {
+                id: request.liveStreamId,
+                astrologerId,
+                status: "LIVE",
+                isDeleted: false,
+              },
+            });
+
+            if (!liveStream) {
+              throw new Error("Live stream is not active");
+            }
+
+            // =========================================
+            // 4. Validate viewer Agora UID
+            // =========================================
+            if (!Number.isInteger(request.agoraUid) || request.agoraUid <= 0) {
+              throw new Error(
+                "Invalid viewer Agora UID. Please ask the viewer to rejoin the live stream.",
+              );
+            }
+
+            // =========================================
+            // 5. Check existing active interaction
+            // =========================================
+            if (action === "ACCEPT") {
+              const existingInteraction =
+                await tx.liveInteractionRequest.findFirst({
+                  where: {
+                    liveStreamId: request.liveStreamId,
+                    id: {
+                      not: request.id,
+                    },
+                    status: {
+                      in: ["PENDING", "ACCEPTED"],
+                    },
+                  },
+                });
+
+              if (existingInteraction) {
+                throw new Error(
+                  "Another interaction request is already active for this live stream.",
+                );
               }
-            : {
-                status: "REJECTED",
-              };
+            }
 
-        const result = await tx.liveInteractionRequest.updateMany({
-          where: {
-            id: requestId,
-            astrologerId,
-            status: "PENDING",
+            // =========================================
+            // 6. Atomic ACCEPT / REJECT update
+            // =========================================
+            const updateData =
+              action === "ACCEPT"
+                ? {
+                    status: "ACCEPTED",
+                    acceptedAt: new Date(),
+                  }
+                : {
+                    status: "REJECTED",
+                  };
+
+            const result = await tx.liveInteractionRequest.updateMany({
+              where: {
+                id: requestId,
+                astrologerId,
+                status: "PENDING",
+              },
+              data: updateData,
+            });
+
+            if (result.count === 0) {
+              throw new Error(
+                "This interaction request has already been processed",
+              );
+            }
+
+            // =========================================
+            // 7. Return updated interaction
+            // =========================================
+            const finalRequest = await tx.liveInteractionRequest.findUnique({
+              where: {
+                id: requestId,
+              },
+            });
+
+            if (!finalRequest) {
+              throw new Error("Unable to retrieve updated interaction");
+            }
+
+            return finalRequest;
           },
-          data: updateData,
+          {
+            isolationLevel: "Serializable",
+          },
+        );
+
+        console.log("Live interaction response:", {
+          requestId: updatedRequest.id,
+          action,
+          status: updatedRequest.status,
+          interactionType: updatedRequest.interactionType,
+          agoraUid: updatedRequest.agoraUid,
         });
 
-        if (result.count === 0) {
-          throw new Error(
-            "This interaction request has already been processed"
-          );
-        }
+        return updatedRequest;
+      } catch (error) {
+        console.error("respondLiveInteractionRequest Error:", error);
 
-        // =========================================
-        // 7. Return updated interaction
-        // =========================================
-        const finalRequest =
-          await tx.liveInteractionRequest.findUnique({
-            where: {
-              id: requestId,
-            },
-          });
-
-        if (!finalRequest) {
-          throw new Error("Unable to retrieve updated interaction");
-        }
-
-        return finalRequest;
-      },
-      {
-        isolationLevel: "Serializable",
+        throw new Error(
+          error.message || "Failed to respond to live interaction request",
+        );
       }
-    );
-
-    console.log("Live interaction response:", {
-      requestId: updatedRequest.id,
-      action,
-      status: updatedRequest.status,
-      interactionType: updatedRequest.interactionType,
-      agoraUid: updatedRequest.agoraUid,
-    });
-
-    return updatedRequest;
-  } catch (error) {
-    console.error("respondLiveInteractionRequest Error:", error);
-
-    throw new Error(
-      error.message || "Failed to respond to live interaction request"
-    );
-  }
-},
+    },
   },
 };
