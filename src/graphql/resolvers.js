@@ -3414,6 +3414,8 @@ export default {
           },
         });
 
+        console.log("followers---------------------: ",followers);
+       
         console.log(
           `[Schedule Live] Total followers found: ${followers.length}`,
         );
@@ -3433,6 +3435,8 @@ export default {
           userId: follower.userId,
           playerId: follower.user?.playerId || null,
         }));
+
+        console.log("notificationFollowers----------111111111111",notificationFollowers);
 
         // -----------------------------------------
         // 4.4 Send OneSignal notifications
