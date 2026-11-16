@@ -138,6 +138,8 @@ export const sendScheduledLiveNotification = async (
         continue;
       }
 
+      console.log("comming player id ",playerId.trim());
+
       subscriptionIds.push(playerId.trim());
     }
 
@@ -145,9 +147,13 @@ export const sendScheduledLiveNotification = async (
     // 4. Remove duplicate subscription IDs
     // =============================================
 
+    console.log("subscriptionIds-----------------------ARRAY OF IDS",subscriptionIds);
+
     const uniqueSubscriptionIds = [
       ...new Set(subscriptionIds),
     ];
+
+    console.log("uniqueSubscriptionIds=================",uniqueSubscriptionIds);
 
     console.log("[Live Notification] Subscription summary:", {
       totalFollowers: followers.length,
