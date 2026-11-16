@@ -24,7 +24,7 @@ import {
   generateAgoraChatUserToken,
   registerAgoraChatUser,
 } from "../services/agoraChatService.js";
-import { sendScheduledLiveNotification } from "../services/sendLiveNotification.js";
+import { sendScheduledLiveNotification,sendLiveStartedNotification } from "../services/sendLiveNotification.js";
 
 export default {
   //JSON: GraphQLJSON,
@@ -3108,162 +3108,212 @@ export default {
     },
 
     startLive: async (_, { title }, { user }) => {
+  try {
+    // 1. Validate authentication
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!title?.trim()) {
+      throw new Error("Live title is required");
+    }
+
+    // 2. Fetch astrologer details
+    const astrologer = await prisma.astrologer.findUnique({
+      where: {
+        id: user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new Error("Astrologer not found");
+    }
+
+    // 3. Prevent multiple active live streams
+    const existingLive = await prisma.liveStream.findFirst({
+      where: {
+        astrologerId: user.id,
+        status: "LIVE",
+        isDeleted: false,
+      },
+    });
+
+    if (existingLive) {
+      throw new Error("You already have an active live stream");
+    }
+
+    // 4. Find the next scheduled stream
+    const scheduledStream = await prisma.liveStream.findFirst({
+      where: {
+        astrologerId: user.id,
+        status: "SCHEDULED",
+        isDeleted: false,
+      },
+      orderBy: {
+        scheduledAt: "asc",
+      },
+    });
+
+    // 5. Validate scheduled time
+    if (scheduledStream?.scheduledAt) {
+      const scheduledTimestamp = scheduledStream.scheduledAt.getTime();
+      const currentTimestamp = Date.now();
+
+      console.log("Scheduled date from DB:", scheduledStream.scheduledAt);
+      console.log("Current date:", new Date());
+
+      if (currentTimestamp < scheduledTimestamp) {
+        const scheduledIST = scheduledStream.scheduledAt.toLocaleString(
+          "en-IN",
+          {
+            timeZone: "Asia/Kolkata",
+            dateStyle: "medium",
+            timeStyle: "short",
+          },
+        );
+
+        throw new Error(
+          `You cannot start the live stream before its scheduled time: ${scheduledIST}`,
+        );
+      }
+    }
+
+    const streamTitle = scheduledStream?.title || title.trim();
+
+    // 6. Agora Chat username
+    const chatUsername = `astro_${astrologer.id}`;
+
+    // 7. Register astrologer in Agora Chat
+    await registerAgoraChatUser({
+      username: chatUsername,
+      nickname:
+        astrologer.displayName || astrologer.name || chatUsername,
+    });
+
+    // 8. Reuse existing chat room if available
+    let chatRoomId = scheduledStream?.chatRoomId || null;
+
+    if (!chatRoomId) {
+      const room = await createAgoraChatRoom({
+        name: `live_${astrologer.id}_${Date.now()}`,
+        description: `Live chat for ${streamTitle}`,
+        maxusers: 100,
+        owner: chatUsername,
+      });
+
+      chatRoomId =
+        room?.id ||
+        room?.chatroomid ||
+        room?.chatroomId ||
+        null;
+
+      if (!chatRoomId) {
+        throw new Error("Agora Chat room creation failed");
+      }
+    }
+
+    // 9. Update scheduled stream or create a new stream
+    let liveStream;
+
+    if (scheduledStream) {
+      liveStream = await prisma.liveStream.update({
+        where: {
+          id: scheduledStream.id,
+        },
+        data: {
+          status: "LIVE",
+          startedAt: new Date(),
+          chatRoomId,
+        },
+      });
+    } else {
+      liveStream = await prisma.liveStream.create({
+        data: {
+          astrologerId: astrologer.id,
+          title: streamTitle,
+          channelName: `astro-${astrologer.id}-${Date.now()}`,
+          status: "LIVE",
+          startedAt: new Date(),
+          chatRoomId,
+        },
+      });
+    }
+
+    console.log(
+      "[Start Live] Live stream started:",
+      liveStream.id,
+    );
+
+    // =====================================================
+    // 10. Send LIVE STARTED notification to all followers
+    // =====================================================
+
+    (async () => {
       try {
-        if (!user) {
-          throw new Error("Unauthorized");
-        }
+        console.log(
+          "[Live Notification] Fetching followers:",
+          astrologer.id,
+        );
 
-        if (!title?.trim()) {
-          throw new Error("Live title is required");
-        }
-
-        // 1. Fetch astrologer details
-        const astrologer = await prisma.astrologer.findUnique({
+        const followers = await prisma.astrologerFollow.findMany({
           where: {
-            id: user.id,
+            astrologerId: astrologer.id,
           },
           select: {
-            id: true,
-            name: true,
-            displayName: true,
-          },
-        });
-
-        if (!astrologer) {
-          throw new Error("Astrologer not found");
-        }
-
-        // 2. Prevent multiple active live streams
-        const existingLive = await prisma.liveStream.findFirst({
-          where: {
-            astrologerId: user.id,
-            status: "LIVE",
-            isDeleted: false,
-          },
-        });
-
-        if (existingLive) {
-          throw new Error("You already have an active live stream");
-        }
-
-        // 3. Find the next scheduled stream
-        const scheduledStream = await prisma.liveStream.findFirst({
-          where: {
-            astrologerId: user.id,
-            status: "SCHEDULED",
-            isDeleted: false,
-          },
-          orderBy: {
-            scheduledAt: "asc",
-          },
-        });
-
-        if (scheduledStream?.scheduledAt) {
-          const scheduledTimestamp = scheduledStream.scheduledAt.getTime();
-          const currentTimestamp = Date.now();
-
-          console.log("Scheduled date from DB:", scheduledStream.scheduledAt);
-          console.log(
-            "Scheduled date ISO:",
-            scheduledStream.scheduledAt.toISOString(),
-          );
-          console.log(
-            "Scheduled date IST:",
-            scheduledStream.scheduledAt.toLocaleString("en-IN", {
-              timeZone: "Asia/Kolkata",
-            }),
-          );
-          console.log("Current date ISO:", new Date().toISOString());
-          console.log(
-            "Current date IST:",
-            new Date().toLocaleString("en-IN", {
-              timeZone: "Asia/Kolkata",
-            }),
-          );
-          console.log(
-            "Difference in minutes:",
-            (scheduledTimestamp - currentTimestamp) / 60000,
-          );
-
-          if (currentTimestamp < scheduledTimestamp) {
-            const scheduledIST = scheduledStream.scheduledAt.toLocaleString(
-              "en-IN",
-              {
-                timeZone: "Asia/Kolkata",
-                dateStyle: "medium",
-                timeStyle: "short",
+            userId: true,
+            user: {
+              select: {
+                playerId: true,
               },
-            );
-
-            throw new Error(
-              `You cannot start the live stream before its scheduled time: ${scheduledIST}`,
-            );
-          }
-        }
-
-        const streamTitle = scheduledStream?.title || title.trim();
-
-        // This must be the same username used by joinLive
-        const chatUsername = `astro_${astrologer.id}`;
-
-        // 5. Ensure astrologer exists in Agora Chat
-        await registerAgoraChatUser({
-          username: chatUsername,
-          nickname: astrologer.displayName || astrologer.name || chatUsername,
-        });
-
-        // 6. Reuse existing chat room if available
-        let chatRoomId = scheduledStream?.chatRoomId || null;
-
-        if (!chatRoomId) {
-          const room = await createAgoraChatRoom({
-            name: `live_${astrologer.id}_${Date.now()}`,
-            description: `Live chat for ${streamTitle}`,
-            maxusers: 100,
-            owner: chatUsername,
-          });
-
-          chatRoomId = room?.id || room?.chatroomid || room?.chatroomId || null;
-
-          if (!chatRoomId) {
-            console.error("Agora Chat room response did not contain a room ID");
-            throw new Error("Agora Chat room creation failed");
-          }
-        }
-
-        // 7. Start scheduled stream
-        if (scheduledStream) {
-          return await prisma.liveStream.update({
-            where: {
-              id: scheduledStream.id,
             },
-            data: {
-              status: "LIVE",
-              startedAt: new Date(),
-              chatRoomId,
-            },
-          });
-        }
-
-        // 8. Create a new live stream if no scheduled stream exists
-        return await prisma.liveStream.create({
-          data: {
-            astrologerId: astrologer.id,
-            title: streamTitle,
-            channelName: `astro-${astrologer.id}-${Date.now()}`,
-            status: "LIVE",
-            startedAt: new Date(),
-            chatRoomId,
           },
         });
-      } catch (error) {
-        console.error("startLive error:", {
-          message: error.message,
-        });
 
-        throw new Error(error.message || "Failed to start live stream");
+        console.log(
+          "[Live Notification] Total followers:",
+          followers.length,
+        );
+
+        const notificationFollowers = followers.map((follower) => ({
+          userId: follower.userId,
+          playerId: follower.user?.playerId || null,
+        }));
+
+        // Send notification without delaying the live-start response
+        const notificationResult =
+          await sendLiveStartedNotification(
+            astrologer,
+            liveStream,
+            notificationFollowers,
+          );
+
+        console.log(
+          "[Live Notification] Result:",
+          notificationResult,
+        );
+      } catch (notificationError) {
+        console.error(
+          "[Live Notification] Failed:",
+          notificationError.message,
+        );
       }
-    },
+    })();
+
+    // 11. Return live stream
+    return liveStream;
+  } catch (error) {
+    console.error("startLive error:", {
+      message: error.message,
+    });
+
+    throw new Error(error.message || "Failed to start live stream");
+  }
+},
 
     endLive: async (_, { streamId }, { user }) => {
       if (!user) {

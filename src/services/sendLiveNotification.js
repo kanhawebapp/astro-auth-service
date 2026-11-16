@@ -274,3 +274,90 @@ export const sendScheduledLiveNotification = async (
     };
   }
 };
+
+
+export const sendLiveStartedNotification = async (
+  astrologer,
+  liveStream,
+  followers,
+) => {
+  try {
+    console.log("Coming sendLiveStartedNotification");
+
+    const validFollowers = followers.filter((follower) => {
+      const playerId = follower.playerId;
+
+      return (
+        playerId &&
+        playerId !== "null" &&
+        playerId !== "undefined" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          playerId,
+        )
+      );
+    });
+
+    console.log("[Live Started] Total followers:", followers.length);
+    console.log(
+      "[Live Started] Valid subscriptions:",
+      validFollowers.length,
+    );
+
+    if (!validFollowers.length) {
+      return {
+        success: true,
+        reason: "NO_VALID_SUBSCRIPTIONS",
+        notificationsSent: 0,
+      };
+    }
+
+    const playerIds = [
+      ...new Set(validFollowers.map((follower) => follower.playerId)),
+    ];
+
+    const notification = new OneSignal.Notification();
+
+    notification.app_id = process.env.ONESIGNAL_APP_ID;
+    notification.include_subscription_ids = playerIds;
+
+    notification.headings = {
+      en: `${astrologer.displayName || astrologer.name} is LIVE!`,
+    };
+
+    notification.contents = {
+      en: `Join now and watch ${astrologer.displayName || astrologer.name} live on DhwaniAstro.`,
+    };
+
+    notification.data = {
+      type: "live_started",
+      liveStreamId: liveStream.id,
+      astrologerId: astrologer.id,
+      astrologerName:
+        astrologer.displayName || astrologer.name,
+      channelName: liveStream.channelName,
+      title: liveStream.title,
+      status: liveStream.status,
+    };
+
+    const response = await client.createNotification(notification);
+
+    console.log("[Live Started] OneSignal response:", response);
+
+    return {
+      success: true,
+      notificationsSent: playerIds.length,
+      response,
+    };
+  } catch (error) {
+    console.error(
+      "[Live Started] OneSignal error:",
+      error.response?.body || error.message,
+    );
+
+    return {
+      success: false,
+      notificationsSent: 0,
+      error: error.message,
+    };
+  }
+};
