@@ -6,11 +6,39 @@ const client = new OneSignal.DefaultApi(
   })
 );
 
+// =============================================
+// Validate OneSignal subscription ID
+// =============================================
+const isValidSubscriptionId = (playerId) => {
+  if (typeof playerId !== "string") {
+    return false;
+  }
+
+  const normalizedId = playerId.trim();
+
+  if (
+    !normalizedId ||
+    normalizedId.toLowerCase() === "null" ||
+    normalizedId.toLowerCase() === "undefined"
+  ) {
+    return false;
+  }
+
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  return uuidRegex.test(normalizedId);
+};
+
 /**
  * Send scheduled live notification to all astrologer followers.
  *
- * No Redis presence checking.
- * Notifications are sent regardless of foreground/background status.
+ * Rules:
+ * 1. If playerId is null, skip that user.
+ * 2. If playerId is empty, skip that user.
+ * 3. If playerId is invalid, skip that user.
+ * 4. Send notification only to users with valid IDs.
+ * 5. No Redis presence checking.
  *
  * Expected follower format:
  * [
@@ -26,10 +54,12 @@ export const sendScheduledLiveNotification = async (
   followers
 ) => {
   try {
+    console.log("Coming sendScheduledLiveNotification");
+
     // =============================================
     // 1. Validate input
     // =============================================
-      console.log("comming sendScheduledLiveNotification");
+
     if (!astrologer?.id) {
       return {
         success: false,
@@ -53,6 +83,10 @@ export const sendScheduledLiveNotification = async (
       };
     }
 
+    // =============================================
+    // 2. Validate OneSignal configuration
+    // =============================================
+
     if (
       !process.env.ONESIGNAL_APP_ID ||
       !process.env.ONESIGNAL_REST_API_KEY
@@ -61,7 +95,90 @@ export const sendScheduledLiveNotification = async (
     }
 
     // =============================================
-    // 2. Notification content
+    // 3. Collect valid subscription IDs
+    // =============================================
+
+    const subscriptionIds = [];
+
+    let missingPlayerIds = 0;
+    let invalidPlayerIds = 0;
+    let skippedUsers = 0;
+
+    for (const follower of followers) {
+      const playerId = follower?.playerId;
+
+      // Skip null, undefined, empty and string null IDs
+      if (
+        playerId === null ||
+        playerId === undefined ||
+        typeof playerId !== "string" ||
+        !playerId.trim() ||
+        playerId.trim().toLowerCase() === "null" ||
+        playerId.trim().toLowerCase() === "undefined"
+      ) {
+        missingPlayerIds++;
+        skippedUsers++;
+
+        console.log(
+          `[Live Notification] Skipping user ${follower?.userId || "UNKNOWN"}: Player ID is missing`
+        );
+
+        continue;
+      }
+
+      // Skip invalid UUIDs
+      if (!isValidSubscriptionId(playerId)) {
+        invalidPlayerIds++;
+        skippedUsers++;
+
+        console.log(
+          `[Live Notification] Skipping user ${follower?.userId || "UNKNOWN"}: Invalid Player ID`
+        );
+
+        continue;
+      }
+
+      subscriptionIds.push(playerId.trim());
+    }
+
+    // =============================================
+    // 4. Remove duplicate subscription IDs
+    // =============================================
+
+    const uniqueSubscriptionIds = [
+      ...new Set(subscriptionIds),
+    ];
+
+    console.log("[Live Notification] Subscription summary:", {
+      totalFollowers: followers.length,
+      validSubscriptions: uniqueSubscriptionIds.length,
+      missingPlayerIds,
+      invalidPlayerIds,
+      skippedUsers,
+    });
+
+    // =============================================
+    // 5. If no valid IDs, don't call OneSignal
+    // =============================================
+
+    if (uniqueSubscriptionIds.length === 0) {
+      console.log(
+        "[Live Notification] No valid subscriptions found. Notification not sent."
+      );
+
+      return {
+        success: true,
+        reason: "NO_VALID_SUBSCRIPTIONS",
+        totalFollowers: followers.length,
+        missingPlayerIds,
+        invalidPlayerIds,
+        skippedUsers,
+        notificationsSent: 0,
+      };
+    }
+
+    // =============================================
+    // 6. Prepare notification content
     // =============================================
 
     const astrologerName =
@@ -78,65 +195,25 @@ export const sendScheduledLiveNotification = async (
       liveStreamId: liveStream.id,
       astrologerId: astrologer.id,
       astrologerName,
+
       channelName: liveStream.channelName || "",
+
       scheduledAt: liveStream.scheduledAt
         ? new Date(liveStream.scheduledAt).toISOString()
         : "",
+
       scheduledEndAt: liveStream.scheduledEndAt
         ? new Date(liveStream.scheduledEndAt).toISOString()
         : "",
+
       status: liveStream.status || "SCHEDULED",
     };
 
     // =============================================
-    // 3. Collect OneSignal subscription IDs
+    // 7. Send notification only to valid IDs
     // =============================================
 
-    const subscriptionIds = [];
-
-    let missingPlayerIds = 0;
-
-    for (const follower of followers) {
-      const playerId = follower.playerId;
-
-      if (!playerId || typeof playerId !== "string") {
-        missingPlayerIds++;
-
-        console.log(
-          `[Live Notification] OneSignal player ID missing for user: ${
-            follower.userId || "UNKNOWN"
-          }`
-        );
-
-        continue;
-      }
-
-      subscriptionIds.push(playerId);
-    }
-
-    // =============================================
-    // 4. Remove duplicate subscription IDs
-    // =============================================
-
-    const uniqueSubscriptionIds = [
-      ...new Set(subscriptionIds),
-    ];
-
-    if (uniqueSubscriptionIds.length === 0) {
-      return {
-        success: true,
-        reason: "NO_ELIGIBLE_SUBSCRIPTIONS",
-        totalFollowers: followers.length,
-        missingPlayerIds,
-        notificationsSent: 0,
-      };
-    }
-
-    // =============================================
-    // 5. Send notification through OneSignal
-    // =============================================
-
-    const response = await client.createNotification({
+    const notification = {
       app_id: process.env.ONESIGNAL_APP_ID,
 
       include_subscription_ids: uniqueSubscriptionIds,
@@ -150,15 +227,21 @@ export const sendScheduledLiveNotification = async (
       },
 
       data: notificationData,
-    });
+    };
 
     console.log(
-      `[Live Notification] Notification sent to followers of astrologer ${astrologer.id}`,
+      `[Live Notification] Sending notification to ${uniqueSubscriptionIds.length} users`
+    );
+
+    const response = await client.createNotification(notification);
+
+    console.log(
+      "[Live Notification] Notification sent successfully:",
       response
     );
 
     // =============================================
-    // 6. Return result
+    // 8. Return success response
     // =============================================
 
     return {
@@ -166,19 +249,22 @@ export const sendScheduledLiveNotification = async (
       reason: "NOTIFICATION_SENT",
       totalFollowers: followers.length,
       missingPlayerIds,
+      invalidPlayerIds,
+      skippedUsers,
       notificationsSent: uniqueSubscriptionIds.length,
       oneSignalResponse: response,
     };
+
   } catch (error) {
     console.error(
       "[Live Notification] Error sending scheduled live notification:",
-      error
+      error?.body || error?.message || error
     );
 
     return {
       success: false,
       reason: "ONESIGNAL_ERROR",
-      error: error.message,
+      error: error?.message || "Unknown OneSignal error",
     };
   }
 };
