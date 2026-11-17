@@ -1140,5 +1140,10 @@ export default gql`
       requestId: ID!
       action: LiveInteractionAction!
     ): LiveInteractionRequest!
+
+    endLiveInteraction(
+  requestId: ID!
+): LiveInteractionRequest!
+
   }
 `;

@@ -3874,5 +3874,118 @@ export default {
     );
   }
 },
+
+endLiveInteraction: async (_, { requestId }, { user }) => {
+  try {
+    // =====================================================
+    // 1. Validate authentication
+    // =====================================================
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!requestId) {
+      throw new Error("Interaction request ID is required");
+    }
+
+    const astrologerId = user.id;
+
+    // =====================================================
+    // 2. Process interaction ending
+    // =====================================================
+    const endedInteraction = await prisma.$transaction(
+      async (tx) => {
+        // -------------------------------------------------
+        // 2.1 Find interaction request
+        // -------------------------------------------------
+        const request = await tx.liveInteractionRequest.findUnique({
+          where: {
+            id: requestId,
+          },
+        });
+
+        if (!request) {
+          throw new Error("Interaction request not found");
+        }
+
+        // -------------------------------------------------
+        // 2.2 Verify astrologer ownership
+        // -------------------------------------------------
+        if (request.astrologerId !== astrologerId) {
+          throw new Error("Access denied");
+        }
+
+        // -------------------------------------------------
+        // 2.3 Verify interaction is accepted
+        // -------------------------------------------------
+        if (request.status !== "ACCEPTED") {
+          throw new Error(
+            `Cannot end interaction. Current status: ${request.status}`
+          );
+        }
+
+        // -------------------------------------------------
+        // 2.4 Update interaction status
+        // -------------------------------------------------
+        const result = await tx.liveInteractionRequest.updateMany({
+          where: {
+            id: requestId,
+            astrologerId,
+            status: "ACCEPTED",
+          },
+          data: {
+            status: "ENDED",
+            endedAt: new Date(),
+          },
+        });
+
+        if (result.count === 0) {
+          throw new Error(
+            "Interaction has already been ended or processed"
+          );
+        }
+
+        // -------------------------------------------------
+        // 2.5 Fetch updated interaction
+        // -------------------------------------------------
+        const finalRequest = await tx.liveInteractionRequest.findUnique({
+          where: {
+            id: requestId,
+          },
+        });
+
+        if (!finalRequest) {
+          throw new Error("Unable to retrieve ended interaction");
+        }
+
+        return finalRequest;
+      },
+      {
+        isolationLevel: "Serializable",
+      }
+    );
+
+    // =====================================================
+    // 3. Log successful interaction ending
+    // =====================================================
+    console.log("Live interaction ended successfully:", {
+      requestId: endedInteraction.id,
+      astrologerId,
+      userId: endedInteraction.userId,
+      interactionType: endedInteraction.interactionType,
+      status: endedInteraction.status,
+      endedAt: endedInteraction.endedAt,
+    });
+
+    return endedInteraction;
+
+  } catch (error) {
+    console.error("endLiveInteraction Error:", error);
+
+    throw new Error(
+      error.message || "Failed to end live interaction"
+    );
+  }
+},
   },
 };
