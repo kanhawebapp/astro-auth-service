@@ -3692,6 +3692,7 @@ export default {
 
  respondLiveInteractionRequest: async (_, { requestId, action }, { user }) => {
   try {
+    console.log("respondLiveInteractionRequest");
     // =====================================================
     // 1. Validate authentication
     // =====================================================
@@ -3877,6 +3878,7 @@ export default {
 
 endLiveInteraction: async (_, { requestId }, { user }) => {
   try {
+    console.log("endLiveInteraction");
     // =====================================================
     // 1. Validate authentication
     // =====================================================
